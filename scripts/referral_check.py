@@ -156,12 +156,12 @@ def check_referral(cursor, supabase, hr_code: str, current_year: int, current_we
     referral = res.data
     if not referral:
         print(f"  No referral found for {hr_code}")
-        return
+        return {"hr_code": hr_code, "name": "—", "outcome": "skipped", "reason": "No referral found"}
 
     # 2. Already approved?
     if referral["status"] == "approved":
         print(f"  Already approved on {referral['approved_at']}. Skipping.")
-        return
+        return {"hr_code": hr_code, "name": referral["recruited_name"], "outcome": "skipped", "reason": "Already approved"}
 
     start_date = referral["start_date"]
     print(f"  Start date: {start_date}")
@@ -259,6 +259,103 @@ def check_referral(cursor, supabase, hr_code: str, current_year: int, current_we
         for r in part1 + part2:
             print(f"  {r['source']:<20} {r['year']:>4} {r['week']:>4} {r['contract_type']:<25} {r['shift_count']:>6} {r['working_days']:>6.1f}")
 
+    final_status = update_data.get("status", referral["status"])
+    return {
+        "hr_code": hr_code,
+        "name": referral["recruited_name"],
+        "outcome": "approved" if final_status == "approved" else "not_yet_eligible",
+        "working_days_total": working_days_total,
+        "days_remaining": max(0, THRESHOLD_DAYS - working_days_total),
+        "discrepancy": start_date_discrepancy_flag,
+    }
+
+
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+NOTIFY_FROM_EMAIL = os.environ.get("NOTIFY_FROM_EMAIL", "")
+NOTIFY_TO_EMAILS = os.environ.get("NOTIFY_TO_EMAILS", "")
+
+
+def send_check_email(results):
+    """Send a summary email of the check run via Resend."""
+    if not RESEND_API_KEY or not NOTIFY_TO_EMAILS:
+        print("\n  Email not configured (RESEND_API_KEY / NOTIFY_TO_EMAILS missing). Skipping email.")
+        return
+
+    import requests
+
+    approved = [r for r in results if r.get("outcome") == "approved"]
+    not_yet = [r for r in results if r.get("outcome") == "not_yet_eligible"]
+    skipped = [r for r in results if r.get("outcome") == "skipped"]
+    errors = [r for r in results if r.get("outcome") == "error"]
+
+    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    date_str = datetime.now().strftime("%d/%m/%Y")
+
+    subject = f"Referral Check Results — {date_str} — {len(results)} checked"
+    if approved:
+        subject += f", {len(approved)} approved"
+
+    lines = [
+        f"Referral Check Run — {now_str}",
+        f"{'=' * 50}",
+        "",
+        f"Checked: {len(results)}  |  Approved: {len(approved)}  |  Not yet eligible: {len(not_yet)}  |  Skipped: {len(skipped)}  |  Errors: {len(errors)}",
+        "",
+    ]
+
+    if approved:
+        lines.append("NEWLY APPROVED")
+        lines.append("-" * 50)
+        for r in approved:
+            lines.append(f"  {r['hr_code']}  {r['name']:<30}  {r['working_days_total']:.1f} days")
+        lines.append("")
+
+    if not_yet:
+        lines.append("NOT YET ELIGIBLE")
+        lines.append("-" * 50)
+        for r in not_yet:
+            remaining = r.get("days_remaining", 0)
+            lines.append(f"  {r['hr_code']}  {r['name']:<30}  {r['working_days_total']:.1f} days  ({remaining:.1f} remaining)")
+        lines.append("")
+
+    if skipped:
+        lines.append("SKIPPED")
+        lines.append("-" * 50)
+        for r in skipped:
+            lines.append(f"  {r['hr_code']}  {r['name']:<30}  {r.get('reason', '')}")
+        lines.append("")
+
+    if errors:
+        lines.append("ERRORS")
+        lines.append("-" * 50)
+        for r in errors:
+            lines.append(f"  {r['hr_code']}  {r.get('reason', 'Unknown error')}")
+        lines.append("")
+
+    lines.append("")
+    lines.append("View full details: https://www.gsapps.co/admin")
+
+    body = "\n".join(lines)
+    recipients = [e.strip() for e in NOTIFY_TO_EMAILS.split(",")]
+
+    try:
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            json={
+                "from": NOTIFY_FROM_EMAIL,
+                "to": recipients,
+                "subject": subject,
+                "text": body,
+            },
+        )
+        if resp.status_code in (200, 201):
+            print(f"\n  Email sent to {', '.join(recipients)}")
+        else:
+            print(f"\n  Email failed ({resp.status_code}): {resp.text}", file=sys.stderr)
+    except Exception as e:
+        print(f"\n  Email failed: {e}", file=sys.stderr)
+
 
 def main():
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -294,14 +391,23 @@ def main():
         print("Usage: python scripts/referral_check.py <HR_CODE> [HR_CODE ...] | --all")
         sys.exit(1)
 
+    results = []
     for hr_code in hr_codes:
         try:
-            check_referral(cursor, supabase, hr_code, current_year, current_week)
+            result = check_referral(cursor, supabase, hr_code, current_year, current_week)
+            if result:
+                results.append(result)
         except Exception as e:
             print(f"\n  ERROR checking {hr_code}: {e}", file=sys.stderr)
+            results.append({"hr_code": hr_code, "name": "—", "outcome": "error", "reason": str(e)})
 
     cursor.close()
     conn.close()
+
+    # Send summary email
+    if results:
+        send_check_email(results)
+
     print(f"\n[{datetime.now():%Y-%m-%d %H:%M:%S}] Done")
 
 
