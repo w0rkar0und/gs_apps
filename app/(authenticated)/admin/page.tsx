@@ -46,10 +46,26 @@ export default async function AdminPage() {
 
   const profileMap = new Map((profiles ?? []).map((p: { id: string; display_id: string }) => [p.id, p.display_id]))
 
-  const enrichedReferrals = (referrals ?? []).map((r: Record<string, unknown>) => ({
-    ...r,
-    recruiter_display_id: profileMap.get(r.recruiter_id) ?? '—',
-  }))
+  // Get contractor statuses
+  const hrCodes = [...new Set((referrals ?? []).map((r: { recruited_hr_code: string }) => r.recruited_hr_code))]
+  const { data: contractors } = hrCodes.length > 0
+    ? await serviceClient
+        .from('contractors')
+        .select('hr_code, is_active, synced_at')
+        .in('hr_code', hrCodes)
+    : { data: [] }
+
+  const contractorMap = new Map<string, { is_active: boolean; synced_at: string }>((contractors ?? []).map((c: { hr_code: string; is_active: boolean; synced_at: string }) => [c.hr_code, { is_active: c.is_active, synced_at: c.synced_at }]))
+
+  const enrichedReferrals = (referrals ?? []).map((r: Record<string, unknown>) => {
+    const contractor = contractorMap.get(r.recruited_hr_code as string)
+    return {
+      ...r,
+      recruiter_display_id: profileMap.get(r.recruiter_id) ?? '—',
+      qwylo_active: contractor?.is_active ?? null,
+      qwylo_synced_at: contractor?.synced_at ?? null,
+    }
+  })
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">

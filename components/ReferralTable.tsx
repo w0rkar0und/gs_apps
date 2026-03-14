@@ -22,7 +22,12 @@ function StatusBadge({ status }: { status: Referral['status'] }) {
   )
 }
 
-export default function ReferralTable({ referrals }: { referrals: Referral[] }) {
+interface EnrichedReferral extends Referral {
+  qwylo_active?: boolean | null
+  qwylo_synced_at?: string | null
+}
+
+export default function ReferralTable({ referrals }: { referrals: EnrichedReferral[] }) {
   const { sorted, sortKey, sortDir, handleSort } = useSort(referrals, 'submitted_at', 'desc')
 
   if (referrals.length === 0) {
@@ -40,6 +45,7 @@ export default function ReferralTable({ referrals }: { referrals: Referral[] }) 
           <tr className="border-b border-gray-200 text-left text-gray-500">
             <SortableHeader label="Contractor Name" sortKey="recruited_name" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="pr-4" />
             <SortableHeader label="HR Code" sortKey="recruited_hr_code" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="pr-4" />
+            <SortableHeader label="Qwylo Status" sortKey="qwylo_active" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="pr-4" />
             <SortableHeader label="Start Date" sortKey="start_date" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="pr-4" />
             <SortableHeader label="Submitted" sortKey="submitted_at" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="pr-4" />
             <SortableHeader label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
@@ -50,6 +56,21 @@ export default function ReferralTable({ referrals }: { referrals: Referral[] }) 
             <tr key={r.id} className="border-b border-gray-100">
               <td className="py-3 pr-4 text-gray-900">{r.recruited_name}</td>
               <td className="py-3 pr-4 text-gray-900">{r.recruited_hr_code}</td>
+              <td className="py-3 pr-4">
+                {r.qwylo_active != null ? (
+                  <span
+                    className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      r.qwylo_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}
+                    title={r.qwylo_synced_at ? `Synced: ${formatDate(r.qwylo_synced_at)}` : ''}
+                  >
+                    {r.qwylo_active ? 'Active' : 'Inactive'}
+                  </span>
+                ) : '—'}
+                {r.qwylo_synced_at && (
+                  <span className="block text-xs text-gray-400 mt-0.5">{formatDate(r.qwylo_synced_at)}</span>
+                )}
+              </td>
               <td className="py-3 pr-4 text-gray-900">{formatDate(r.start_date)}</td>
               <td className="py-3 pr-4 text-gray-900">{formatDate(r.submitted_at)}</td>
               <td className="py-3"><StatusBadge status={r.status} /></td>

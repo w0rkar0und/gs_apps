@@ -30,13 +30,35 @@ export default async function AdminChecksPage() {
     .select('recruited_hr_code, recruited_name, status, working_days_total, last_checked_at, start_date')
     .order('submitted_at', { ascending: true })
 
+  // Get contractor statuses
+  const allHrCodes = [...new Set([
+    ...(pending ?? []).map((r: { recruited_hr_code: string }) => r.recruited_hr_code),
+    ...(allReferrals ?? []).map((r: { recruited_hr_code: string }) => r.recruited_hr_code),
+  ])]
+  const { data: contractors } = allHrCodes.length > 0
+    ? await serviceClient
+        .from('contractors')
+        .select('hr_code, is_active, synced_at')
+        .in('hr_code', allHrCodes)
+    : { data: [] }
+
+  const contractorMap = new Map<string, { is_active: boolean; synced_at: string }>((contractors ?? []).map((c: { hr_code: string; is_active: boolean; synced_at: string }) => [c.hr_code, { is_active: c.is_active, synced_at: c.synced_at }]))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function enrichList(list: any[]) {
+    return list.map((r: any) => {
+      const c = contractorMap.get(r.recruited_hr_code as string)
+      return { ...r, qwylo_active: c?.is_active ?? null, qwylo_synced_at: c?.synced_at ?? null }
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-5xl mx-auto px-4">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Referral Checks</h1>
         <ChecksPanel
-          pendingReferrals={pending ?? []}
-          allReferrals={allReferrals ?? []}
+          pendingReferrals={enrichList(pending ?? [])}
+          allReferrals={enrichList(allReferrals ?? [])}
         />
       </div>
     </div>

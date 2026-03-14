@@ -26,6 +26,8 @@ function StatusBadge({ status }: { status: ReferralStatus }) {
 
 interface AdminReferral extends Referral {
   recruiter_display_id?: string
+  qwylo_active?: boolean | null
+  qwylo_synced_at?: string | null
 }
 
 async function updateReferral(id: string, updates: Record<string, unknown>) {
@@ -131,6 +133,7 @@ export default function AdminTable({ referrals: initialReferrals }: { referrals:
             <SortableHeader label="Recruiter" sortKey="recruiter_display_id" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
             <SortableHeader label="Contractor" sortKey="recruited_name" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
             <SortableHeader label="HR Code" sortKey="recruited_hr_code" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+            <SortableHeader label="Qwylo Status" sortKey="qwylo_active" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
             <SortableHeader label="Start Date" sortKey="start_date" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
             <SortableHeader label="Working Days" sortKey="working_days_total" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
             <SortableHeader label="Last Checked" sortKey="last_checked_at" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
@@ -162,6 +165,21 @@ export default function AdminTable({ referrals: initialReferrals }: { referrals:
                   <td className="py-3 pr-3 text-gray-900">{r.recruiter_display_id ?? '—'}</td>
                   <td className="py-3 pr-3 text-gray-900">{r.recruited_name}</td>
                   <td className="py-3 pr-3 text-gray-900">{r.recruited_hr_code}</td>
+                  <td className="py-3 pr-3">
+                    {r.qwylo_active != null ? (
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          r.qwylo_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}
+                        title={r.qwylo_synced_at ? `Synced: ${formatDate(r.qwylo_synced_at)}` : ''}
+                      >
+                        {r.qwylo_active ? 'Active' : 'Inactive'}
+                      </span>
+                    ) : '—'}
+                    {r.qwylo_synced_at && (
+                      <span className="block text-xs text-gray-400 mt-0.5">{formatDate(r.qwylo_synced_at)}</span>
+                    )}
+                  </td>
                   <td className="py-3 pr-3 text-gray-900">{formatDate(r.start_date)}</td>
                   <td className="py-3 pr-3 text-gray-900">
                     {r.working_days_total != null ? (
@@ -239,7 +257,7 @@ export default function AdminTable({ referrals: initialReferrals }: { referrals:
                 </tr>
                 {isExpanded && hasDetail && (
                   <tr className="bg-gray-50">
-                    <td colSpan={9} className="px-6 py-4 border-b border-gray-200">
+                    <td colSpan={10} className="px-6 py-4 border-b border-gray-200">
                       <CheckDetailView
                         detail={r.last_check_snapshot as never}
                         checkedAt={r.last_checked_at ?? undefined}

@@ -14,6 +14,27 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
     .eq('recruiter_id', user.id)
     .order('submitted_at', { ascending: false })
 
+  // Get contractor statuses
+  const hrCodes = [...new Set((referrals ?? []).map((r: { recruited_hr_code: string }) => r.recruited_hr_code))]
+  const { data: contractors } = hrCodes.length > 0
+    ? await supabase
+        .from('contractors')
+        .select('hr_code, is_active, synced_at')
+        .in('hr_code', hrCodes)
+    : { data: [] }
+
+  const contractorMap = new Map<string, { is_active: boolean; synced_at: string }>((contractors ?? []).map((c: { hr_code: string; is_active: boolean; synced_at: string }) => [c.hr_code, { is_active: c.is_active, synced_at: c.synced_at }]))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const enrichedReferrals = (referrals ?? []).map((r: any) => {
+    const contractor = contractorMap.get(r.recruited_hr_code as string)
+    return {
+      ...r,
+      qwylo_active: contractor?.is_active ?? null,
+      qwylo_synced_at: contractor?.synced_at ?? null,
+    }
+  })
+
   const params = await searchParams
   const justSubmitted = params.submitted === '1'
 
@@ -29,7 +50,7 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
         )}
 
         <div className="bg-white rounded-lg shadow p-6">
-          <ReferralTable referrals={referrals ?? []} />
+          <ReferralTable referrals={enrichedReferrals} />
         </div>
       </div>
     </div>

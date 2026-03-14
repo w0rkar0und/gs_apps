@@ -10,6 +10,8 @@ interface Referral {
   working_days_total: number | null
   last_checked_at: string | null
   start_date: string
+  qwylo_active?: boolean | null
+  qwylo_synced_at?: string | null
 }
 
 function formatDate(dateStr: string | null): string {
@@ -167,6 +169,7 @@ export default function ChecksPanel({
                   </th>
                   <SortableHeader label="HR Code" sortKey="recruited_hr_code" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHeader label="Contractor" sortKey="recruited_name" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Qwylo Status" sortKey="qwylo_active" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHeader label="Start Date" sortKey="start_date" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHeader label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHeader label="Working Days" sortKey="working_days_total" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
@@ -192,6 +195,18 @@ export default function ChecksPanel({
                     </td>
                     <td className="py-3 pr-3 text-gray-900 font-mono">{r.recruited_hr_code}</td>
                     <td className="py-3 pr-3 text-gray-900">{r.recruited_name}</td>
+                    <td className="py-3 pr-3">
+                      {r.qwylo_active != null ? (
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            r.qwylo_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}
+                          title={r.qwylo_synced_at ? `Synced: ${formatDate(r.qwylo_synced_at)}` : ''}
+                        >
+                          {r.qwylo_active ? 'Active' : 'Inactive'}
+                        </span>
+                      ) : '—'}
+                    </td>
                     <td className="py-3 pr-3 text-gray-900">{formatDate(r.start_date)}</td>
                     <td className="py-3 pr-3"><StatusBadge status={r.status} /></td>
                     <td className="py-3 pr-3 text-gray-900">{r.working_days_total ?? '—'}</td>
