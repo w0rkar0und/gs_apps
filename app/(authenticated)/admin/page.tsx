@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase-server'
 import SyncStatusBanner from '@/components/SyncStatusBanner'
 import AdminTable from '@/components/AdminTable'
@@ -55,15 +54,7 @@ export default async function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <Link
-            href="/admin/users"
-            className="bg-gray-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-gray-700"
-          >
-            Manage Users
-          </Link>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Admin Dashboard</h1>
 
         <SyncStatusBanner lastSync={lastSync} />
 
