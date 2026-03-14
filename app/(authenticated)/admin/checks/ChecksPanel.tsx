@@ -92,7 +92,22 @@ export default function ChecksPanel({
 
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Check all non-approved referrals</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">1. Contractor sync (run first to update statuses)</label>
+            <div className="flex gap-2">
+              <code className="flex-1 bg-gray-900 text-green-400 rounded px-4 py-2.5 text-sm font-mono select-all overflow-x-auto">
+                python scripts/contractor_sync.py
+              </code>
+              <button
+                onClick={() => navigator.clipboard.writeText('python scripts/contractor_sync.py')}
+                className="shrink-0 bg-gray-100 text-gray-700 rounded px-3 py-2 text-sm hover:bg-gray-200"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">2. Check all non-approved referrals</label>
             <div className="flex gap-2">
               <code className="flex-1 bg-gray-900 text-green-400 rounded px-4 py-2.5 text-sm font-mono select-all overflow-x-auto">
                 {allPendingCommand}
@@ -109,7 +124,7 @@ export default function ChecksPanel({
           {singleCommand && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Check selected ({selectedCodes.length})
+                3. Check selected ({selectedCodes.length})
               </label>
               <div className="flex gap-2">
                 <code className="flex-1 bg-gray-900 text-green-400 rounded px-4 py-2.5 text-sm font-mono select-all overflow-x-auto whitespace-nowrap">
