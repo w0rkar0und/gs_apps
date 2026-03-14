@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Referral, ReferralStatus } from '@/lib/types'
+import CheckDetailView from './CheckDetailView'
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
@@ -40,6 +41,7 @@ export default function AdminTable({ referrals: initialReferrals }: { referrals:
   const [referrals, setReferrals] = useState(initialReferrals)
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   async function handleStatusChange(id: string, newStatus: ReferralStatus) {
     setSavingId(id)
@@ -89,6 +91,7 @@ export default function AdminTable({ referrals: initialReferrals }: { referrals:
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200 text-left text-gray-500">
+            <th className="pb-3 pr-3 w-8"></th>
             <th className="pb-3 pr-3 font-medium">Recruiter</th>
             <th className="pb-3 pr-3 font-medium">Contractor</th>
             <th className="pb-3 pr-3 font-medium">HR Code</th>
@@ -102,65 +105,104 @@ export default function AdminTable({ referrals: initialReferrals }: { referrals:
         <tbody>
           {referrals.map((r) => {
             const isEditingNotes = r.id in editingNotes
+            const isExpanded = expandedId === r.id
+            const hasDetail = !!r.last_check_snapshot
             return (
-              <tr key={r.id} className="border-b border-gray-100 align-top">
-                <td className="py-3 pr-3 text-gray-900">{r.recruiter_display_id ?? '—'}</td>
-                <td className="py-3 pr-3 text-gray-900">{r.recruited_name}</td>
-                <td className="py-3 pr-3 text-gray-900">{r.recruited_hr_code}</td>
-                <td className="py-3 pr-3 text-gray-900">{formatDate(r.start_date)}</td>
-                <td className="py-3 pr-3 text-gray-900">{r.working_days_total ?? '—'}</td>
-                <td className="py-3 pr-3 text-gray-900">
-                  {r.last_checked_at ? formatDate(r.last_checked_at) : '—'}
-                </td>
-                <td className="py-3 pr-3">
-                  <select
-                    value={r.status}
-                    onChange={(e) => handleStatusChange(r.id, e.target.value as ReferralStatus)}
-                    disabled={savingId === r.id}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="not_yet_eligible">Not Yet Eligible</option>
-                    <option value="approved">Approved</option>
-                  </select>
-                </td>
-                <td className="py-3">
-                  {isEditingNotes ? (
-                    <div className="flex gap-1">
-                      <input
-                        type="text"
-                        value={editingNotes[r.id]}
-                        onChange={(e) => setEditingNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                        className="rounded border border-gray-300 px-2 py-1 text-xs w-40"
-                      />
+              <Fragment key={r.id}>
+                <tr className={`border-b border-gray-100 align-top ${isExpanded ? 'bg-gray-50' : ''}`}>
+                  <td className="py-3 pr-1">
+                    {hasDetail && (
                       <button
-                        onClick={() => handleNotesSave(r.id)}
-                        disabled={savingId === r.id}
-                        className="text-xs text-blue-600 hover:text-blue-800"
+                        onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                        className="text-gray-400 hover:text-gray-700 w-6 h-6 flex items-center justify-center"
+                        title="View working day breakdown"
                       >
-                        Save
+                        <span className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                          &#9656;
+                        </span>
                       </button>
-                      <button
-                        onClick={() => setEditingNotes((prev) => {
-                          const next = { ...prev }
-                          delete next[r.id]
-                          return next
-                        })}
-                        className="text-xs text-gray-500 hover:text-gray-700"
+                    )}
+                  </td>
+                  <td className="py-3 pr-3 text-gray-900">{r.recruiter_display_id ?? '—'}</td>
+                  <td className="py-3 pr-3 text-gray-900">{r.recruited_name}</td>
+                  <td className="py-3 pr-3 text-gray-900">{r.recruited_hr_code}</td>
+                  <td className="py-3 pr-3 text-gray-900">{formatDate(r.start_date)}</td>
+                  <td className="py-3 pr-3 text-gray-900">
+                    {r.working_days_total != null ? (
+                      <span
+                        className={hasDetail ? 'cursor-pointer text-blue-600 hover:text-blue-800 underline decoration-dotted' : ''}
+                        onClick={() => hasDetail && setExpandedId(isExpanded ? null : r.id)}
                       >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <span
-                      onClick={() => setEditingNotes((prev) => ({ ...prev, [r.id]: r.approval_notes ?? '' }))}
-                      className="text-gray-900 cursor-pointer hover:text-blue-600"
+                        {r.working_days_total}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="py-3 pr-3 text-gray-900">
+                    {r.last_checked_at ? formatDate(r.last_checked_at) : '—'}
+                  </td>
+                  <td className="py-3 pr-3">
+                    <select
+                      value={r.status}
+                      onChange={(e) => handleStatusChange(r.id, e.target.value as ReferralStatus)}
+                      disabled={savingId === r.id}
+                      className="rounded border border-gray-300 px-2 py-1 text-xs"
                     >
-                      {r.approval_notes || <span className="text-gray-400 italic">Click to add</span>}
-                    </span>
-                  )}
-                </td>
-              </tr>
+                      <option value="pending">Pending</option>
+                      <option value="not_yet_eligible">Not Yet Eligible</option>
+                      <option value="approved">Approved</option>
+                    </select>
+                  </td>
+                  <td className="py-3">
+                    {isEditingNotes ? (
+                      <div className="flex gap-1">
+                        <input
+                          type="text"
+                          value={editingNotes[r.id]}
+                          onChange={(e) => setEditingNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs w-40"
+                        />
+                        <button
+                          onClick={() => handleNotesSave(r.id)}
+                          disabled={savingId === r.id}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingNotes((prev) => {
+                            const next = { ...prev }
+                            delete next[r.id]
+                            return next
+                          })}
+                          className="text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        onClick={() => setEditingNotes((prev) => ({ ...prev, [r.id]: r.approval_notes ?? '' }))}
+                        className="text-gray-900 cursor-pointer hover:text-blue-600"
+                      >
+                        {r.approval_notes || <span className="text-gray-400 italic">Click to add</span>}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+                {isExpanded && hasDetail && (
+                  <tr className="bg-gray-50">
+                    <td colSpan={9} className="px-6 py-4 border-b border-gray-200">
+                      <CheckDetailView
+                        detail={r.last_check_snapshot as never}
+                        checkedAt={r.last_checked_at ?? undefined}
+                        workingDaysApproved={r.working_days_approved ?? undefined}
+                        workingDaysProjected={r.working_days_projected ?? undefined}
+                        workingDaysTotal={r.working_days_total ?? undefined}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             )
           })}
         </tbody>
@@ -168,3 +210,5 @@ export default function AdminTable({ referrals: initialReferrals }: { referrals:
     </div>
   )
 }
+
+import { Fragment } from 'react'
