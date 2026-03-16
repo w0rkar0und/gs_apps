@@ -30,7 +30,7 @@ export async function generateWorkingDaysExcel(data: any): Promise<Buffer> {
   const name = contractor ? `${contractor.HrCode} — ${contractor.FirstName} ${contractor.LastName}` : 'Unknown'
 
   // Title
-  const titleRow = ws.addRow([`Working Day Count Report: ${name}`])
+  const titleRow = ws.addRow([`Deposit - Working Day Count Report: ${name}`])
   titleRow.eachCell((c) => { c.style = titleStyle })
   ws.mergeCells(titleRow.number, 1, titleRow.number, 7)
   titleRow.height = 30

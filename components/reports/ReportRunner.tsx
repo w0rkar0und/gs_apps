@@ -8,7 +8,7 @@ type ReportType = 'deposit' | 'working-days'
 
 const REPORT_LABELS: Record<ReportType, string> = {
   deposit: 'Deposit Report',
-  'working-days': 'Working Day Count',
+  'working-days': 'Deposit - Working Day Count',
 }
 
 const inputClasses = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white uppercase"

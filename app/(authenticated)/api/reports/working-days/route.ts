@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
     const perms = access[0].permissions as Record<string, boolean> | null
     if (!perms?.['working-days']) {
-      return NextResponse.json({ error: 'You do not have access to the Working Day Count Report.' }, { status: 403 })
+      return NextResponse.json({ error: 'You do not have access to the Deposit - Working Day Count Report.' }, { status: 403 })
     }
   }
 

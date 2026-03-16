@@ -92,7 +92,7 @@ export default function WorkingDaysReport({ data }: { data: WorkingDaysData }) {
     <div className="space-y-6">
       {/* Contractor header */}
       <div className="bg-[#1F3864] rounded-lg px-5 py-4 text-white">
-        <h2 className="text-lg font-semibold">Working Day Count Report</h2>
+        <h2 className="text-lg font-semibold">Deposit - Working Day Count Report</h2>
         <p className="text-blue-200 text-sm mt-1">
           {contractor.HrCode} — {contractor.FirstName} {contractor.LastName}
           <span className="ml-3 text-blue-300">Current epoch: Year {currentEpoch.year}, Week {currentEpoch.week}</span>
