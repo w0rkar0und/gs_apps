@@ -26,6 +26,14 @@ export default function ReportRunner({ allowedReports }: Props) {
   const [reportData, setReportData] = useState<any>(null)
   const [activeReportType, setActiveReportType] = useState<ReportType | null>(null)
 
+  // Download/email state
+  const [downloading, setDownloading] = useState(false)
+  const [emailing, setEmailing] = useState(false)
+  const [emailAddress, setEmailAddress] = useState('')
+  const [showEmailInput, setShowEmailInput] = useState(false)
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const code = hrCode.trim().toUpperCase()
@@ -34,6 +42,9 @@ export default function ReportRunner({ allowedReports }: Props) {
     setLoading(true)
     setError(null)
     setReportData(null)
+    setShowEmailInput(false)
+    setEmailSuccess(null)
+    setActionError(null)
 
     try {
       const res = await fetch(`/api/reports/${reportType}`, {
@@ -57,6 +68,76 @@ export default function ReportRunner({ allowedReports }: Props) {
     }
 
     setLoading(false)
+  }
+
+  async function handleDownload() {
+    if (!reportData || !activeReportType) return
+    setDownloading(true)
+    setActionError(null)
+
+    try {
+      const res = await fetch('/api/reports/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportType: activeReportType, reportData }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        setActionError(err.error || 'Failed to download.')
+        setDownloading(false)
+        return
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ?? 'report.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setActionError('Failed to download report.')
+    }
+
+    setDownloading(false)
+  }
+
+  async function handleEmail() {
+    if (!reportData || !activeReportType || !emailAddress.trim()) return
+    setEmailing(true)
+    setActionError(null)
+    setEmailSuccess(null)
+
+    try {
+      const res = await fetch('/api/reports/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportType: activeReportType,
+          reportData,
+          recipientEmail: emailAddress.trim(),
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setActionError(data.error || 'Failed to send email.')
+        setEmailing(false)
+        return
+      }
+
+      setEmailSuccess(`Report sent to ${emailAddress.trim()}.`)
+      setShowEmailInput(false)
+      setEmailAddress('')
+    } catch {
+      setActionError('Failed to send email.')
+    }
+
+    setEmailing(false)
   }
 
   return (
@@ -108,6 +189,66 @@ export default function ReportRunner({ allowedReports }: Props) {
           <div className="mt-4 rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
       </div>
+
+      {/* Actions bar — shown when report data is loaded */}
+      {reportData && activeReportType && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              {downloading ? 'Downloading...' : 'Download Excel'}
+            </button>
+
+            {showEmailInput ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  placeholder="Recipient email"
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white w-56"
+                />
+                <button
+                  onClick={handleEmail}
+                  disabled={emailing || !emailAddress.trim()}
+                  className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                >
+                  {emailing ? 'Sending...' : 'Send'}
+                </button>
+                <button
+                  onClick={() => { setShowEmailInput(false); setEmailAddress('') }}
+                  className="text-sm text-slate-400 hover:text-slate-600 px-2 py-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowEmailInput(true)}
+                className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-200 active:scale-[0.98]"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                </svg>
+                Email Report
+              </button>
+            )}
+
+            {actionError && (
+              <span className="text-sm text-red-600">{actionError}</span>
+            )}
+            {emailSuccess && (
+              <span className="text-sm text-emerald-600">{emailSuccess}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Report output */}
       {reportData && activeReportType === 'deposit' && (
