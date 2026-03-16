@@ -2,7 +2,7 @@ export interface AppDefinition {
   slug: string
   name: string
   description: string
-  icon: 'referrals' | 'generic'
+  icon: 'referrals' | 'reports' | 'generic'
   basePath: string
 }
 
@@ -13,6 +13,13 @@ export const APPS: AppDefinition[] = [
     description: 'Register and track contractor referrals',
     icon: 'referrals',
     basePath: '/referrals',
+  },
+  {
+    slug: 'reports',
+    name: 'Reports',
+    description: 'Run self-service reports against Greythorn',
+    icon: 'reports',
+    basePath: '/reports',
   },
 ]
 
