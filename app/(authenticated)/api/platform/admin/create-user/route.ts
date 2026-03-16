@@ -36,21 +36,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { display_id, password, is_internal, is_admin, app_slugs } = await request.json()
+  const { display_id, password, full_name, email: userEmail, is_internal, is_admin, app_slugs } = await request.json()
 
   if (!display_id || !password) {
     return NextResponse.json({ error: 'Display ID and password are required.' }, { status: 400 })
   }
 
   const domain = is_internal ? 'greythorn.internal' : 'greythorn.external'
-  const email = `${display_id.toLowerCase()}@${domain}`
+  const authEmail = `${display_id.toLowerCase()}@${domain}`
 
   const { data: newUser, error: createError } = await serviceClient.auth.admin.createUser({
-    email,
+    email: authEmail,
     password,
     email_confirm: true,
     user_metadata: {
       display_id,
+      full_name: full_name || null,
+      email: userEmail || null,
       is_internal: !!is_internal,
     },
   })
@@ -59,11 +61,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: createError.message }, { status: 400 })
   }
 
-  // Set admin status if requested
-  if (is_admin) {
+  // Set admin status and additional profile fields
+  const profileUpdate: Record<string, unknown> = {}
+  if (is_admin) profileUpdate.is_admin = true
+  if (full_name) profileUpdate.full_name = full_name
+  if (userEmail) profileUpdate.email = userEmail
+
+  if (Object.keys(profileUpdate).length > 0) {
     await serviceClient
       .from('profiles')
-      .update({ is_admin: true })
+      .update(profileUpdate)
       .eq('id', newUser.user.id)
   }
 

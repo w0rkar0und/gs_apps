@@ -42,9 +42,84 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'user_id is required.' }, { status: 400 })
   }
 
-  // Prevent admins from modifying their own admin status
-  if (action === 'toggle_admin' && user_id === user.id) {
-    return NextResponse.json({ error: 'You cannot change your own admin status.' }, { status: 400 })
+  // Prevent admins from modifying themselves for destructive actions
+  if (['toggle_admin', 'deactivate'].includes(action) && user_id === user.id) {
+    return NextResponse.json({ error: 'You cannot perform this action on your own account.' }, { status: 400 })
+  }
+
+  if (action === 'edit_profile') {
+    const { display_id, full_name, email, is_internal } = params
+
+    const update: Record<string, unknown> = {}
+    if (display_id !== undefined) update.display_id = display_id
+    if (full_name !== undefined) update.full_name = full_name || null
+    if (email !== undefined) update.email = email || null
+    if (is_internal !== undefined) update.is_internal = is_internal
+
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: 'No fields to update.' }, { status: 400 })
+    }
+
+    const { error: updateError } = await serviceClient
+      .from('profiles')
+      .update(update)
+      .eq('id', user_id)
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    const { data: updated } = await serviceClient
+      .from('profiles')
+      .select('*')
+      .eq('id', user_id)
+      .single()
+
+    return NextResponse.json({ ok: true, profile: updated })
+  }
+
+  if (action === 'toggle_active') {
+    const { data: target } = await serviceClient
+      .from('profiles')
+      .select('is_active')
+      .eq('id', user_id)
+      .single()
+
+    if (!target) {
+      return NextResponse.json({ error: 'User not found.' }, { status: 404 })
+    }
+
+    const newActive = !target.is_active
+
+    // Update profile
+    const { error: updateError } = await serviceClient
+      .from('profiles')
+      .update({ is_active: newActive })
+      .eq('id', user_id)
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    // Ban/unban in Supabase Auth
+    if (newActive) {
+      await serviceClient.auth.admin.updateUserById(user_id, { ban_duration: 'none' })
+    } else {
+      await serviceClient.auth.admin.updateUserById(user_id, { ban_duration: '876000h' })
+    }
+
+    return NextResponse.json({ ok: true, is_active: newActive })
+  }
+
+  if (action === 'delete_user') {
+    // Delete from Supabase Auth (cascades to profiles and user_apps via FK)
+    const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user_id)
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
   }
 
   if (action === 'toggle_admin') {

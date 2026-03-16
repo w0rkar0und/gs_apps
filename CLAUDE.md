@@ -76,6 +76,8 @@ gs_apps/
 ├── components/
 │   ├── AuthNavbar.tsx                   # Platform — server component, fetches profile
 │   ├── Navbar.tsx                       # Platform — multi-app aware, dynamic nav links
+│   ├── platform/                        # ── Platform components ──
+│   │   └── PlatformUserManagement.tsx   # Admin user management (create/edit/deactivate/delete)
 │   └── referrals/                       # ── Referrals app components ──
 │       ├── AdminTable.tsx
 │       ├── CheckDetailView.tsx
@@ -97,7 +99,8 @@ gs_apps/
 ├── supabase/
 │   └── migrations/
 │       ├── 001_initial_schema.sql       # Core tables, RLS, triggers
-│       └── 002_user_apps.sql            # Multi-app user access table
+│       ├── 002_user_apps.sql            # Multi-app user access table
+│       └── 003_profile_fields.sql       # Add full_name, email, is_active to profiles
 ├── seed_data/                           # Historical data imports
 ├── vercel.json                          # Vercel cron schedule
 ├── next.config.ts                       # Redirects for old URLs
@@ -175,8 +178,11 @@ Extends Supabase `auth.users`. Created automatically on user signup via trigger.
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   display_id TEXT NOT NULL,          -- HR code (X######) or j.smith for external
+  full_name TEXT,                    -- User's full name
+  email TEXT,                        -- User's real email address
   is_internal BOOLEAN NOT NULL DEFAULT TRUE,
   is_admin BOOLEAN NOT NULL DEFAULT FALSE,   -- Platform-wide admin flag
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,   -- Deactivated users cannot log in
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
@@ -364,13 +370,16 @@ CREATE TRIGGER on_auth_user_created
 /login                         → Username/password login
 /(authenticated)/
   apps/                        → App launcher (shows authorised apps)
+  apps/admin/                  → Platform user management (admin only)
   referrals/                   → My Referrals (recruiter view)
   referrals/submit/            → New referral form
   referrals/admin/             → Admin dashboard (all referrals)
   referrals/admin/checks/      → Run Checks
   referrals/admin/users/       → User provisioning
+  api/platform/admin/create-user     → Platform user creation (service role)
+  api/platform/admin/update-user     → Platform user edit/deactivate/delete (service role)
   api/referrals/admin/update-referral → Admin referral updates (service role)
-  api/referrals/admin/create-user    → Admin user creation (service role)
+  api/referrals/admin/create-user    → Referrals user creation (service role)
 /api/cron/sync-reminder        → Daily sync reminder email
 /api/cron/check-sync           → Missed sync detection + alert
 /api/cron/referral-digest      → Daily new referrals digest

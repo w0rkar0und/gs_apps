@@ -3,8 +3,11 @@ export type ReferralStatus = 'pending' | 'not_yet_eligible' | 'approved'
 export interface Profile {
   id: string
   display_id: string
+  full_name: string | null
+  email: string | null
   is_internal: boolean
   is_admin: boolean
+  is_active: boolean
   created_at: string
 }
 

@@ -32,14 +32,14 @@ export default async function PlatformAdminPage() {
     appsByUser.set(ua.user_id, existing)
   }
 
-  const usersWithApps = (profiles ?? []).map((p: { id: string; display_id: string; is_internal: boolean; is_admin: boolean; created_at: string }) => ({
+  const usersWithApps = (profiles ?? []).map((p: { id: string; display_id: string; full_name: string | null; email: string | null; is_internal: boolean; is_admin: boolean; is_active: boolean; created_at: string }) => ({
     ...p,
     app_slugs: appsByUser.get(p.id) ?? [],
   }))
 
   return (
     <div className="py-8">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <h1 className="text-xl font-semibold text-slate-900 mb-6">User Management</h1>
         <PlatformUserManagement
           initialUsers={usersWithApps}
