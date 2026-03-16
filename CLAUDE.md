@@ -18,6 +18,7 @@ Platform admins (`profiles.is_admin = true`) can access all apps and manage user
 | App | Slug | Status | Description |
 |---|---|---|---|
 | Referrals | `referrals` | Live | Contractor referral registration and verification |
+| Reports | `reports` | Live | Self-service Greythorn SQL Server reports with visualisations |
 
 ---
 
@@ -29,9 +30,12 @@ Platform admins (`profiles.is_admin = true`) can access all apps and manage user
 | Database + Auth | Supabase (Postgres) | Row Level Security enforced |
 | Repository | GitHub (`gs_apps`) | https://github.com/w0rkar0und/gs_apps |
 | Sync/Check Scripts | Python 3.9+ | Run locally or via self-hosted GitHub Actions runner |
-| Greythorn DB | Azure SQL Server | Accessed via pyodbc in Python scripts |
+| Greythorn DB | Azure SQL Server | Accessed via Railway proxy (static IP) |
+| SQL Proxy | Railway (Pro plan) | Node.js/Express — static outbound IP for SQL Server whitelist |
 | Cron | Vercel cron | Daily sync reminder, missed sync check, referral digest |
 | Email notifications | Resend | Verified sender domain: greythornservices.uk |
+| Charts | Recharts | Used in Reports app for data visualisation |
+| Excel generation | ExcelJS | House-style .xlsx reports |
 
 ---
 
@@ -50,7 +54,9 @@ gs_apps/
 │   ├── (authenticated)/                 # Route group — shared navbar layout
 │   │   ├── layout.tsx                   # AuthNavbar wrapper
 │   │   ├── apps/
-│   │   │   └── page.tsx                 # App launcher — shows authorised apps
+│   │   │   ├── page.tsx                 # App launcher — shows authorised apps
+│   │   │   └── admin/
+│   │   │       └── page.tsx             # Platform user management (admin only)
 │   │   ├── referrals/                   # ── Referrals app ──
 │   │   │   ├── page.tsx                 # My Referrals (recruiter view)
 │   │   │   ├── submit/
@@ -63,11 +69,21 @@ gs_apps/
 │   │   │       └── users/
 │   │   │           ├── page.tsx         # User provisioning
 │   │   │           └── UserManagement.tsx
+│   │   ├── reports/                     # ── Reports app ──
+│   │   │   └── page.tsx                 # Report runner (server component, checks permissions)
 │   │   └── api/
-│   │       └── referrals/
-│   │           └── admin/
-│   │               ├── create-user/route.ts
-│   │               └── update-referral/route.ts
+│   │       ├── platform/admin/
+│   │       │   ├── create-user/route.ts # Platform user creation (service role)
+│   │       │   └── update-user/route.ts # Platform user edit/deactivate/delete
+│   │       ├── referrals/admin/
+│   │       │   ├── create-user/route.ts
+│   │       │   └── update-referral/route.ts
+│   │       └── reports/
+│   │           ├── deposit/route.ts             # Proxy → Railway deposit report
+│   │           ├── working-days/route.ts        # Proxy → Railway working days report
+│   │           ├── working-days-by-client/route.ts  # Proxy → Railway fleet-wide report
+│   │           ├── download/route.ts            # ExcelJS generation → .xlsx download
+│   │           └── email/route.ts               # ExcelJS generation → Resend email
 │   └── api/
 │       └── cron/                        # Vercel cron endpoints (platform-level)
 │           ├── sync-reminder/route.ts
@@ -78,21 +94,37 @@ gs_apps/
 │   ├── Navbar.tsx                       # Platform — multi-app aware, dynamic nav links
 │   ├── platform/                        # ── Platform components ──
 │   │   └── PlatformUserManagement.tsx   # Admin user management (create/edit/deactivate/delete)
-│   └── referrals/                       # ── Referrals app components ──
-│       ├── AdminTable.tsx
-│       ├── CheckDetailView.tsx
-│       ├── HrCodeInput.tsx
-│       ├── ReferralForm.tsx
-│       ├── ReferralTable.tsx
-│       ├── SearchInput.tsx
-│       ├── SortableHeader.tsx
-│       └── SyncStatusBanner.tsx
+│   ├── referrals/                       # ── Referrals app components ──
+│   │   ├── AdminTable.tsx
+│   │   ├── CheckDetailView.tsx
+│   │   ├── HrCodeInput.tsx
+│   │   ├── ReferralForm.tsx
+│   │   ├── ReferralTable.tsx
+│   │   ├── SearchInput.tsx
+│   │   ├── SortableHeader.tsx
+│   │   └── SyncStatusBanner.tsx
+│   └── reports/                         # ── Reports app components ──
+│       ├── ReportRunner.tsx             # Report selector, download/email actions
+│       ├── DepositReport.tsx            # Deposit report — 4-section table view
+│       ├── WorkingDaysReport.tsx        # Per-contractor working day count
+│       └── WorkingDaysByClientReport.tsx # Fleet-wide: filters, chart, grouped table
+├── docs/
+│   ├── GREYTHORN_REPORTS_CONTEXT.md     # Full report specs (deposit + working days)
+│   └── WORKING_DAY_COUNT_BY_CLIENT.md   # Fleet-wide report spec + SQL
 ├── lib/
 │   ├── apps.ts                          # App registry — add new apps here
 │   ├── app-nav.ts                       # Per-app navigation links
+│   ├── excel-styles.ts                  # ExcelJS house style definitions
+│   ├── excel-deposit.ts                 # Deposit report Excel generator
+│   ├── excel-working-days.ts            # Working day count Excel generator
+│   ├── excel-working-days-by-client.ts  # Fleet-wide report Excel generator
 │   ├── supabase.ts                      # Supabase client (browser)
 │   ├── supabase-server.ts               # Supabase client (server/RSC)
 │   └── types.ts                         # Shared TypeScript types
+├── railway-proxy/                       # ── Railway SQL proxy service ──
+│   ├── index.js                         # Express server — report query endpoints
+│   ├── package.json
+│   └── .gitignore
 ├── scripts/
 │   ├── contractor_sync.py               # Greythorn → Supabase contractor sync
 │   └── referral_check.py                # Working day verification
@@ -100,7 +132,8 @@ gs_apps/
 │   └── migrations/
 │       ├── 001_initial_schema.sql       # Core tables, RLS, triggers
 │       ├── 002_user_apps.sql            # Multi-app user access table
-│       └── 003_profile_fields.sql       # Add full_name, email, is_active to profiles
+│       ├── 003_profile_fields.sql       # Add full_name, email, is_active to profiles
+│       └── 004_user_apps_permissions.sql # Add permissions JSONB to user_apps
 ├── seed_data/                           # Historical data imports
 ├── vercel.json                          # Vercel cron schedule
 ├── next.config.ts                       # Redirects for old URLs
@@ -140,7 +173,7 @@ gs_apps/
 3. **Update middleware matcher** — add the base path to `middleware.ts`:
    ```typescript
    export const config = {
-     matcher: ['/apps/:path*', '/referrals/:path*', '/new-app/:path*'],
+     matcher: ['/apps/:path*', '/referrals/:path*', '/reports/:path*', '/new-app/:path*'],
    }
    ```
 
@@ -153,6 +186,7 @@ gs_apps/
 ### App access control
 
 - **`user_apps` table** maps users to apps via `(user_id, app_slug)` pairs
+- **`permissions` JSONB column** on `user_apps` provides sub-level access control (e.g. per-report-type)
 - **Platform admins** (`profiles.is_admin = true`) bypass `user_apps` and can access all apps
 - **Middleware** checks `user_apps` on every request to an app route; unauthorised users redirect to `/apps`
 - **App launcher** (`/apps`) only shows apps the user has access to
@@ -163,7 +197,8 @@ gs_apps/
 - Logo links to `/apps` (the launcher)
 - Shows the current app name next to the logo
 - Nav links are contextual — driven by `lib/app-nav.ts` based on the current URL path
-- On the `/apps` launcher page, no app-specific nav links are shown
+- On the `/apps` launcher page, admins see "Users & Access" link
+- All forms have `autoComplete="off"` to prevent browser value retention
 
 ---
 
@@ -189,6 +224,8 @@ CREATE TABLE profiles (
 
 `is_admin` is a **platform-level superadmin flag** — admins can access all apps and all admin features.
 
+**Note:** `is_active` may be `null` for users created before migration 003. Frontend code uses `=== false` checks to treat `null` as active.
+
 #### Table: `user_apps`
 Maps users to the apps they can access. Admins bypass this check.
 
@@ -197,11 +234,18 @@ CREATE TABLE user_apps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   app_slug TEXT NOT NULL,
+  permissions JSONB,                 -- Sub-level permissions (e.g. {"deposit": true, "working-days": true})
   granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   granted_by UUID REFERENCES auth.users(id),
   UNIQUE(user_id, app_slug)
 );
 ```
+
+**Permissions JSONB** — used by apps that need sub-level access control. For the Reports app:
+```json
+{"deposit": true, "working-days": true, "working-days-by-client": true}
+```
+The `APP_PERMISSIONS` config in `PlatformUserManagement.tsx` defines which apps have sub-permissions and what the keys are.
 
 ### Referrals app tables
 
@@ -345,16 +389,19 @@ CREATE POLICY "referral_checks_select_own" ON referral_checks FOR SELECT
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, display_id, is_internal, is_admin)
+  INSERT INTO profiles (id, display_id, full_name, email, is_internal, is_admin)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'display_id', NEW.email),
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'email',
     COALESCE((NEW.raw_user_meta_data->>'is_internal')::boolean, true),
     false
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -376,10 +423,16 @@ CREATE TRIGGER on_auth_user_created
   referrals/admin/             → Admin dashboard (all referrals)
   referrals/admin/checks/      → Run Checks
   referrals/admin/users/       → User provisioning
+  reports/                     → Report runner (all report types)
   api/platform/admin/create-user     → Platform user creation (service role)
   api/platform/admin/update-user     → Platform user edit/deactivate/delete (service role)
   api/referrals/admin/update-referral → Admin referral updates (service role)
   api/referrals/admin/create-user    → Referrals user creation (service role)
+  api/reports/deposit                → Deposit report proxy
+  api/reports/working-days           → Working day count proxy
+  api/reports/working-days-by-client → Fleet-wide report proxy
+  api/reports/download               → Excel download for any report type
+  api/reports/email                  → Email report to user's own email
 /api/cron/sync-reminder        → Daily sync reminder email
 /api/cron/check-sync           → Missed sync detection + alert
 /api/cron/referral-digest      → Daily new referrals digest
@@ -395,7 +448,7 @@ Configured in `next.config.ts`:
 
 ## Environment Variables
 
-### `.env.example` (committed — empty values only)
+### Vercel (Next.js)
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
@@ -404,6 +457,19 @@ RESEND_API_KEY=
 NOTIFY_FROM_EMAIL=
 NOTIFY_TO_EMAILS=
 CRON_SECRET=
+RAILWAY_PROXY_URL=https://gsapps-production.up.railway.app
+RAILWAY_PROXY_SECRET=<shared secret>
+```
+
+### Railway (SQL proxy)
+```
+MSSQL_HOST=
+MSSQL_PORT=1433
+MSSQL_USER=
+MSSQL_PASSWORD=
+MSSQL_DATABASE=
+PROXY_SECRET=<same shared secret>
+PORT=3000
 ```
 
 ### Python scripts — `scripts/.env` (never commit)
@@ -416,6 +482,115 @@ GT_DB_USER=
 GT_DB_PASSWORD=
 GT_DB_PORT=1433
 ```
+
+---
+
+## Railway SQL Proxy
+
+### Overview
+A Node.js/Express service deployed on Railway with static outbound IPs, used to proxy SQL Server queries from Vercel (which has no static IP).
+
+- **Public URL:** `https://gsapps-production.up.railway.app`
+- **Health check:** `GET /health` → `{ status: 'ok', database: 'connected' }`
+- **Auth:** `X-Report-Secret` header validated on all `/report/*` endpoints
+- **Root directory:** `railway-proxy/` within the `gs_apps` repo
+- **Static outbound IP:** whitelisted on Greythorn Azure SQL Server firewall
+
+### Endpoints
+
+| Method | Path | Body | Description |
+|---|---|---|---|
+| GET | `/health` | — | DB connectivity check (no auth) |
+| POST | `/report/deposit` | `{ hrCode }` | Deposit report — 4 section queries |
+| POST | `/report/working-days` | `{ hrCode }` | Per-contractor working day count |
+| POST | `/report/working-days-by-client` | `{}` | Fleet-wide weighted days by client/branch/contract type |
+
+### Request flow
+```
+Browser → Vercel API route (JWT auth + permission check)
+       → Railway proxy (X-Report-Secret header)
+       → SQL Server (Greythorn)
+       → JSON back through the chain
+```
+
+---
+
+## Reports App — Detailed Documentation
+
+### Architecture
+
+Reports follow a consistent pattern:
+1. **Railway proxy** runs the SQL query and returns JSON
+2. **Vercel API route** authenticates the user, checks permissions, proxies to Railway
+3. **ReportRunner** client component handles form, download, and email actions
+4. **Report component** renders the in-browser preview (tables + charts)
+5. **Excel generator** produces house-style .xlsx for download/email
+
+### Report Types
+
+| Slug | Name | HR Code Required | Description |
+|---|---|---|---|
+| `deposit` | Deposit Report | Yes | 4-section deposit summary per contractor |
+| `working-days` | Deposit - Working Day Count | Yes | Per-contractor weekly working day count |
+| `working-days-by-client` | Working Days by Client | No | Fleet-wide weighted days with visualisations |
+
+### Access Control
+
+Report access is controlled at two levels:
+1. **App level** — user must have `reports` in `user_apps`
+2. **Report level** — `permissions` JSONB on the `user_apps` row specifies which report types are allowed
+
+Admins bypass both levels.
+
+### Deposit Report (4 sections)
+1. **Deposit Details** — all deposit records with transaction audit trail (deleted transactions filtered out)
+2. **Vehicle Usage History** — all vehicles, non-Greythorn in italic grey
+3. **Vehicle Charges** — Greythorn vehicles only, with payment status and totals
+4. **Deposit Return Audit** — ContractorAdditionalPay where reason = 7
+
+### Deposit - Working Day Count
+- Per-contractor, per-week summary from approved debriefs + current-week rota projections
+- Two separate queries (never UNION ALL with FLOAT)
+- Half-day rule for nursery contracts applied in presentation layer
+
+### Working Days by Client
+- Fleet-wide: no HR code input, scans all approved debriefs
+- Targets the **last completed** Greythorn epoch week (not current)
+- Three weight tiers in SQL: OSM/Support = 0.0, Sameday_6* = 0.5, else = 1.0
+- Includes `BranchAlias` for display and filtering
+- **Visualisations:** filter bar (Client, Branch, Contract Type) + Recharts bar chart that drills down + grouped data table
+
+### Excel House Style
+
+| Element | Style |
+|---|---|
+| Title row | Dark navy (`#1F3864`), white bold text |
+| Column headers | Dark navy (`#1F3864`), white bold text |
+| Section banners | Mid-blue (`#2E75B6`), white bold text |
+| Alternating data rows | White / light blue (`#DEEAF1`) |
+| Nil-record notices | Amber (`#FFD966`), italic |
+| Summary/total rows | Green (`#E2EFDA`), bold |
+| Non-Greythorn vehicle rows | Italic grey (`#808080`) |
+| Projected rota rows | Amber (`#FFD966`) |
+| Zero-weight rows (OSM, Support) | Italic grey (`#808080`) |
+| Gridlines | Hidden |
+
+### Email Delivery
+- "Email to Me" sends the .xlsx to the user's `email` from their `profiles` row
+- If no email is set: "No email present on user setup. Please contact system admin."
+- Sent via Resend from `NOTIFY_FROM_EMAIL`
+
+### CRITICAL: Greythorn Query Rules
+- **Always `CAST(... AS DATE)`** when joining to `Calendar`
+- **Always `CAST(numeric AS FLOAT)`** for any numeric column
+- **Never `UNION ALL` with FLOAT columns** — run as separate queries
+- **Always quote `[User]`** — SQL Server reserved word
+- **Debrief has no `IsDeleted`** — use `IsApproved = 1` as sole quality gate
+- **Column is `RegistrationNumber`** — not `Registration`
+- **Column is `VehicleSupplierName`** — not `Name`
+- **`VehicleSupplierId = 2`** = Greythorn
+- **`ContractorAdditionalPayReasonId = 7`** = Deposit Return
+- **BranchId from Debrief** — join `Branch` via `d.BranchId`, not `ContractType.BranchId`
 
 ---
 
@@ -449,11 +624,19 @@ start date, compares against 30-day threshold, writes results to Supabase.
 
 Query version: `v1.0`. Half-day rule applies to: `NL 1%`, `NL 2%`, `NL 3%`, `Nursery 1%`, `Nursery 2%`, `Nursery L1%`, `Nursery L2%`, `Nursery L3%`.
 
-### CRITICAL: Greythorn Query Rules
-- **Always `CAST(... AS DATE)`** when joining to `Calendar`
-- **Always `CAST(numeric AS FLOAT)`** for any numeric column
-- **Never `UNION ALL` with FLOAT columns** — run as separate queries
-- **Always quote `[User]`** — SQL Server reserved word
+---
+
+## Platform Admin Features
+
+### User Management (`/apps/admin`)
+
+- **Create users** — display ID, full name, email, password, type (internal/external), admin flag, app access with per-report-type permissions
+- **Edit users** — inline edit of display ID, full name, email, type
+- **Toggle admin** — make/remove platform admin (cannot modify own status)
+- **Deactivate/Reactivate** — sets `is_active` on profile and bans/unbans in Supabase Auth
+- **Delete users** — with confirmation prompt, cascades via FK
+- **Edit app access** — per-user app assignments with sub-permissions (e.g. report types)
+- **Search** — across display ID, full name, and email
 
 ---
 
@@ -472,6 +655,7 @@ Query version: `v1.0`. Half-day rule applies to: `NL 1%`, `NL 2%`, `NL 3%`, `Nur
 - **App:** https://www.gsapps.co
 - **Supabase:** https://fjhkowrxuczkrafczcru.supabase.co
 - **GitHub:** https://github.com/w0rkar0und/gs_apps
+- **Railway proxy:** https://gsapps-production.up.railway.app
 - **Resend sender domain:** greythornservices.uk
 - **Admin email:** miten@greythorn.services
 
@@ -479,21 +663,43 @@ Query version: `v1.0`. Half-day rule applies to: `NL 1%`, `NL 2%`, `NL 3%`, `Nur
 
 ## Current State (as of 16 March 2026)
 
+### Multi-App Platform — Live, Pushed to GitHub
+
+- App launcher at `/apps` with card-based UI
+- `user_apps` table for per-app access control with `permissions` JSONB
+- Middleware enforces per-app authorisation
+- Navbar is multi-app aware with contextual navigation
+- Platform admin at `/apps/admin` for user management
+- Components namespaced under `components/referrals/`, `components/reports/`, `components/platform/`
+- All referral routes under `/referrals/` prefix
+- Old URLs redirected via `next.config.ts`
+- Repo renamed to `gs_apps` on GitHub, Vercel, and Supabase
+- Local directory renamed to `gs_apps`
+
 ### Referrals App — Fully Built
 
 All 11 original build phases complete. Referrals app is live at `/referrals/*`.
 
-### Multi-App Platform — Implemented, Not Yet Pushed
+### Reports App — Fully Built
 
-- App launcher at `/apps` with card-based UI
-- `user_apps` table for per-app access control (migration applied to Supabase)
-- Middleware enforces per-app authorisation
-- Navbar is multi-app aware with contextual navigation
-- Components namespaced under `components/referrals/`
-- All referral routes moved under `/referrals/` prefix
-- Old URLs redirected via `next.config.ts`
-- Repo renamed to `gs_apps` on GitHub, Vercel, and Supabase
-- **Next step:** Rename local directory from `gs_referrals` to `gs_apps`, then push all changes to GitHub
+All 8 build phases complete. Reports app is live at `/reports`:
+- Phase 1: Railway proxy service (deployed, health check passing)
+- Phase 2: Deposit report endpoint
+- Phase 3: Working day count endpoint
+- Phase 4: Auth gate + report-level permissions
+- Phase 5: Reports page with HR code input + report selector
+- Phase 6: In-browser formatted report preview
+- Phase 7: ExcelJS generation with house style + download
+- Phase 8: Resend email delivery with .xlsx attachment
+- Additional: Working Days by Client report with visualisations (filters + Recharts + grouped table)
+
+### Pending Migrations
+
+Check which migrations have been applied to Supabase. The following exist in the repo:
+- `001_initial_schema.sql` — core tables, RLS, triggers
+- `002_user_apps.sql` — multi-app user access table
+- `003_profile_fields.sql` — add full_name, email, is_active to profiles
+- `004_user_apps_permissions.sql` — add permissions JSONB to user_apps
 
 ### Users
 
@@ -509,9 +715,14 @@ All 11 original build phases complete. Referrals app is live at `/referrals/*`.
 3. **ODBC Driver 18** on Mac
 4. **Profile trigger** requires `SET search_path = public`
 5. **REF-001 duplicate check** runs during HR code validation, before REF-002
-6. **Greythorn DB is Azure SQL** — accessible from any internet-connected machine
+6. **Greythorn DB is Azure SQL** — accessed via Railway proxy for static IP
 7. **`is_admin` on profiles** is platform-wide superadmin — admins bypass all app access checks
 8. **`user_apps` table** gates per-user app access; middleware checks on every request
+9. **`permissions` JSONB** on `user_apps` for sub-level access (e.g. per-report-type)
+10. **Railway proxy** provides static outbound IP for SQL Server whitelist
+11. **`is_active` null safety** — frontend uses `=== false` to treat null (pre-migration) as active
+12. **Email delivery** goes to user's own email from profiles; errors if no email set
+13. **`autoComplete="off"`** on all forms to prevent browser value retention
 
 ---
 
@@ -522,6 +733,7 @@ All 11 original build phases complete. Referrals app is live at `/referrals/*`.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` in browser-side code
 - If a Greythorn query produces unexpected results, check the CRITICAL rules section first
 - When adding a new app, follow the "How to add a new app" checklist above
+- When adding a new report type, update: Railway proxy endpoint, Vercel API route, ReportRunner labels, reports page ALL_REPORT_TYPES, Excel generator, download/email routes, APP_PERMISSIONS in PlatformUserManagement
 
 ---
 
