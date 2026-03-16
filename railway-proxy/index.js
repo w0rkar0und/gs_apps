@@ -107,6 +107,7 @@ app.post('/report/deposit', async (req, res) => {
           LEFT JOIN [User] cu ON cu.UserId = t.CreatedBy
           LEFT JOIN UserProfile cup ON cup.UserId = cu.UserId
           WHERE t.ContractorVehicleDepositId = @DepositId
+            AND t.IsDeleted = 0
         `);
       deposit.transactions = txResult.recordset;
     }
