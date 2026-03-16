@@ -7,7 +7,7 @@ export interface Profile {
   email: string | null
   is_internal: boolean
   is_admin: boolean
-  is_active: boolean
+  is_active: boolean | null
   created_at: string
 }
 

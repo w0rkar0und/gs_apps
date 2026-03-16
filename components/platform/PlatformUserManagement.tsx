@@ -357,7 +357,7 @@ export default function PlatformUserManagement({ initialUsers, allApps, currentU
               </thead>
               <tbody>
                 {filteredUsers.map((u) => (
-                  <tr key={u.id} className={`border-b border-slate-100 last:border-0 ${!u.is_active ? 'opacity-50' : ''}`}>
+                  <tr key={u.id} className={`border-b border-slate-100 last:border-0 ${u.is_active === false ? 'opacity-50' : ''}`}>
                     {editingProfileUserId === u.id ? (
                       <>
                         <td className="py-3 pr-4">
@@ -423,10 +423,10 @@ export default function PlatformUserManagement({ initialUsers, allApps, currentU
                         <td className="py-3 pr-4 text-slate-600">{u.email || <span className="text-slate-300">&mdash;</span>}</td>
                         <td className="py-3 pr-4 text-slate-600">{u.is_internal ? 'Internal' : 'External'}</td>
                         <td className="py-3 pr-4">
-                          {u.is_active ? (
-                            <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-medium">Active</span>
-                          ) : (
+                          {u.is_active === false ? (
                             <span className="inline-block rounded-full bg-red-50 text-red-600 px-2.5 py-0.5 text-xs font-medium">Inactive</span>
+                          ) : (
+                            <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-medium">Active</span>
                           )}
                         </td>
                         <td className="py-3 pr-4">
@@ -535,12 +535,12 @@ export default function PlatformUserManagement({ initialUsers, allApps, currentU
                                     onClick={() => handleToggleActive(u.id)}
                                     disabled={loadingUserId === u.id}
                                     className={`text-xs font-medium px-2 py-1 rounded-lg ${
-                                      u.is_active
-                                        ? 'text-amber-600 hover:bg-amber-50'
-                                        : 'text-emerald-600 hover:bg-emerald-50'
+                                      u.is_active === false
+                                        ? 'text-emerald-600 hover:bg-emerald-50'
+                                        : 'text-amber-600 hover:bg-amber-50'
                                     } disabled:opacity-50`}
                                   >
-                                    {loadingUserId === u.id ? '...' : u.is_active ? 'Deactivate' : 'Reactivate'}
+                                    {loadingUserId === u.id ? '...' : u.is_active === false ? 'Reactivate' : 'Deactivate'}
                                   </button>
                                   <button
                                     onClick={() => setConfirmDeleteUserId(u.id)}
