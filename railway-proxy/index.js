@@ -342,6 +342,7 @@ app.post('/report/working-days-by-client', async (req, res) => {
       SELECT
           CONVERT(VARCHAR(50), cl.ClientName)       AS ClientName,
           CONVERT(VARCHAR(50), b.BranchName)        AS BranchName,
+          CONVERT(VARCHAR(50), b.BranchAlias)       AS BranchAlias,
           CONVERT(VARCHAR(80), ct.ContractTypeName) AS ContractTypeName,
           COUNT(*)                                  AS ShiftCount,
           SUM(
@@ -359,7 +360,7 @@ app.post('/report/working-days-by-client', async (req, res) => {
                   WHEN ct.ContractTypeName LIKE 'Sameday_6%' THEN 0.5
                   ELSE 1.0
               END
-          )) OVER (PARTITION BY cl.ClientName, b.BranchName) AS SiteTotal
+          )) OVER (PARTITION BY cl.ClientName, b.BranchName, b.BranchAlias) AS SiteTotal
       FROM Debrief d
       JOIN Contractor c    ON c.ContractorId    = d.ContractorId
       JOIN ContractType ct ON ct.ContractTypeId = d.ContractTypeId
@@ -384,8 +385,8 @@ app.post('/report/working-days-by-client', async (req, res) => {
                         ELSE GtEpochWeek - 1 END
             FROM Calendar WHERE Date = CAST(GETDATE() AS DATE)
         )
-      GROUP BY cl.ClientName, b.BranchName, ct.ContractTypeName
-      ORDER BY cl.ClientName, b.BranchName, ct.ContractTypeName
+      GROUP BY cl.ClientName, b.BranchName, b.BranchAlias, ct.ContractTypeName
+      ORDER BY cl.ClientName, b.BranchName, b.BranchAlias, ct.ContractTypeName
     `);
 
     res.json({

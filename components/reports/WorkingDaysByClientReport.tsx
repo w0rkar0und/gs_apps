@@ -8,10 +8,15 @@ import {
 interface DataRow {
   ClientName: string
   BranchName: string
+  BranchAlias: string | null
   ContractTypeName: string
   ShiftCount: number
   WeightedDays: number
   SiteTotal: number
+}
+
+function branchDisplay(row: { BranchName: string; BranchAlias: string | null }): string {
+  return row.BranchAlias ? `${row.BranchName} (${row.BranchAlias})` : row.BranchName
 }
 
 interface WorkingDaysByClientData {
@@ -53,8 +58,11 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
 
   const branches = useMemo(() => {
     const filtered = clientFilter === 'All' ? rows : rows.filter((r) => r.ClientName === clientFilter)
-    const set = new Set(filtered.map((r) => r.BranchName))
-    return Array.from(set).sort()
+    const map = new Map<string, string>()
+    for (const r of filtered) {
+      if (!map.has(r.BranchName)) map.set(r.BranchName, branchDisplay(r))
+    }
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]))
   }, [rows, clientFilter])
 
   const contractTypes = useMemo(() => {
@@ -110,11 +118,12 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
       // Show by branch within client
       const map = new Map<string, { name: string; value: number; isZero: boolean }>()
       for (const r of filteredRows) {
+        const label = branchDisplay(r)
         const existing = map.get(r.BranchName)
         if (existing) {
           existing.value += r.WeightedDays
         } else {
-          map.set(r.BranchName, { name: r.BranchName, value: r.WeightedDays, isZero: false })
+          map.set(r.BranchName, { name: label, value: r.WeightedDays, isZero: false })
         }
       }
       return Array.from(map.values()).sort((a, b) => b.value - a.value)
@@ -135,14 +144,14 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
 
   // Group rows for table display
   const groupedRows = useMemo(() => {
-    const groups: { client: string; branch: string; siteTotal: number; rows: DataRow[] }[] = []
+    const groups: { client: string; branch: string; branchAlias: string | null; siteTotal: number; rows: DataRow[] }[] = []
     let currentKey = ''
     let currentGroup: (typeof groups)[0] | null = null
 
     for (const r of filteredRows) {
       const key = `${r.ClientName}|${r.BranchName}`
       if (key !== currentKey) {
-        currentGroup = { client: r.ClientName, branch: r.BranchName, siteTotal: r.SiteTotal, rows: [] }
+        currentGroup = { client: r.ClientName, branch: r.BranchName, branchAlias: r.BranchAlias, siteTotal: r.SiteTotal, rows: [] }
         groups.push(currentGroup)
         currentKey = key
       }
@@ -199,7 +208,7 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
               className={selectClasses + ' w-full'}
             >
               <option value="All">All</option>
-              {branches.map((b) => <option key={b} value={b}>{b}</option>)}
+              {branches.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
             </select>
           </div>
           <div className="w-full sm:w-52">
@@ -261,6 +270,7 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className={`${tableHeader} py-2.5 px-4 text-left`}>Client</th>
                   <th className={`${tableHeader} py-2.5 px-4 text-left`}>Branch</th>
+                  <th className={`${tableHeader} py-2.5 px-4 text-left`}>Alias</th>
                   <th className={`${tableHeader} py-2.5 px-4 text-left`}>Contract Type</th>
                   <th className={`${tableHeader} py-2.5 px-4 text-right`}>Shifts</th>
                   <th className={`${tableHeader} py-2.5 px-4 text-right`}>Weighted Days</th>
@@ -272,8 +282,8 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
                   <>
                     {/* Group header */}
                     <tr key={`header-${gi}`} className="bg-[#2E75B6]/10 border-b border-slate-200">
-                      <td colSpan={5} className="py-2 px-4 text-sm font-semibold text-[#1F3864]">
-                        {group.client} — {group.branch}
+                      <td colSpan={6} className="py-2 px-4 text-sm font-semibold text-[#1F3864]">
+                        {group.client} — {group.branch}{group.branchAlias ? ` (${group.branchAlias})` : ''}
                       </td>
                       <td className="py-2 px-4 text-sm font-semibold text-[#1F3864] text-right">
                         {group.siteTotal.toFixed(1)}
@@ -289,6 +299,7 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
                         >
                           <td className={`${cellClass} ${zeroWeight ? 'italic text-slate-400' : ''}`}>{r.ClientName}</td>
                           <td className={`${cellClass} ${zeroWeight ? 'italic text-slate-400' : ''}`}>{r.BranchName}</td>
+                          <td className={`${cellClass} ${zeroWeight ? 'italic text-slate-400' : ''}`}>{r.BranchAlias ?? '—'}</td>
                           <td className={`${cellClass} ${zeroWeight ? 'italic text-slate-400' : ''}`}>{r.ContractTypeName}</td>
                           <td className={`${cellClass} text-right ${zeroWeight ? 'italic text-slate-400' : ''}`}>{r.ShiftCount}</td>
                           <td className={`${cellClass} text-right ${zeroWeight ? 'italic text-slate-400' : ''}`}>{r.WeightedDays.toFixed(1)}</td>
@@ -300,7 +311,7 @@ export default function WorkingDaysByClientReport({ data }: { data: WorkingDaysB
                 ))}
                 {/* Grand total row */}
                 <tr className="bg-[#E2EFDA]/50">
-                  <td colSpan={3} className={`${cellClass} font-semibold`}>Grand Total</td>
+                  <td colSpan={4} className={`${cellClass} font-semibold`}>Grand Total</td>
                   <td className={`${cellClass} text-right font-semibold`}>{grandShiftTotal}</td>
                   <td className={`${cellClass} text-right font-semibold`}>{grandTotal.toFixed(1)}</td>
                   <td className={cellClass} />
