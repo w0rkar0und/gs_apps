@@ -83,7 +83,7 @@ function currency(val: number): string {
   return val.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
 }
 
-function CollapsibleSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function CollapsibleSection({ title, collapsedSummary, defaultOpen = true, children }: { title: string; collapsedSummary?: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
@@ -93,8 +93,13 @@ function CollapsibleSection({ title, defaultOpen = true, children }: { title: st
         onClick={() => setOpen(!open)}
         className="w-full text-left text-sm font-semibold text-white bg-[#2E75B6] px-4 py-2 flex items-center justify-between rounded-t-lg"
       >
-        {title}
-        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+        <span className="flex items-center gap-3">
+          {title}
+          {!open && collapsedSummary && (
+            <span className="font-normal text-xs text-blue-100/80">{collapsedSummary}</span>
+          )}
+        </span>
+        <svg className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
         </svg>
       </button>
@@ -119,6 +124,27 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
   const weeksPaid = transactions.length
   const weeksRemaining = deposit ? deposit.DepositWeeks - weeksPaid : 0
   const amountRemaining = deposit ? deposit.DepositAmount - totalCollected : 0
+
+  // Collapsed summary: instalments
+  const instalmentSummary = deposit && transactions.length > 0
+    ? `${weeksPaid} of ${deposit.DepositWeeks} weeks paid — ${currency(amountRemaining)} remaining (${weeksRemaining} weeks)`
+    : undefined
+
+  // Collapsed summary: vehicles — count non-DA (non-Greythorn) vehicles
+  const nonDaCount = (vehicles ?? []).filter(v => v.VehicleSupplierId !== 2).length
+  const vehicleSummary = (vehicles ?? []).length > 0 && nonDaCount > 0
+    ? `${nonDaCount} non-DA supplied vehicle${nonDaCount !== 1 ? 's' : ''}`
+    : undefined
+
+  // Collapsed summary: charges
+  const partialPaidCount = charges.filter(ch => ch.Paid > 0 && ch.Outstanding > 0).length
+  const unpaidCount = charges.filter(ch => ch.Paid === 0 && ch.Outstanding > 0).length
+  const totalOutstanding = charges.reduce((s, c) => s + c.Outstanding, 0)
+  const chargeSummaryParts: string[] = []
+  if (partialPaidCount > 0) chargeSummaryParts.push(`${partialPaidCount} partial paid`)
+  if (unpaidCount > 0) chargeSummaryParts.push(`${unpaidCount} unpaid`)
+  if (totalOutstanding > 0) chargeSummaryParts.push(`${currency(totalOutstanding)} outstanding`)
+  const chargeSummary = chargeSummaryParts.length > 0 ? chargeSummaryParts.join(' · ') : undefined
 
   return (
     <div className="space-y-6">
@@ -191,7 +217,7 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
       </CollapsibleSection>
 
       {/* Section 2: Deposit Instalment Payments */}
-      <CollapsibleSection title="Deposit Instalment Payments">
+      <CollapsibleSection title="Deposit Instalment Payments" collapsedSummary={instalmentSummary}>
         {!deposit ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No deposit record found for this contractor.</div>
         ) : transactions.length === 0 ? (
@@ -227,7 +253,7 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
       </CollapsibleSection>
 
       {/* Section 3: Vehicles Since Deposit */}
-      <CollapsibleSection title={`Vehicles Assigned${deposit ? ` (since ${deposit.CreatedDate})` : ''}`}>
+      <CollapsibleSection title={`Vehicles Assigned${deposit ? ` (since ${deposit.CreatedDate})` : ''}`} collapsedSummary={vehicleSummary}>
         {(vehicles ?? []).length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">
             {deposit ? 'No vehicles assigned since the last deposit record.' : 'No deposit record — no date window to filter vehicles.'}
@@ -266,7 +292,7 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
       </CollapsibleSection>
 
       {/* Section 4: Vehicle Charges */}
-      <CollapsibleSection title="Vehicle Charges">
+      <CollapsibleSection title="Vehicle Charges" collapsedSummary={chargeSummary}>
         {charges.length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No vehicle charges found for this contractor during any Greythorn vehicle assignment window.</div>
         ) : (
