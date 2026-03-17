@@ -9,7 +9,7 @@ type ReportType = 'deposit' | 'working-days' | 'working-days-by-client'
 
 const REPORT_LABELS: Record<ReportType, string> = {
   deposit: 'Deposit Report',
-  'working-days': 'Deposit - Working Day Count',
+  'working-days': 'Contractor - Working Day Count',
   'working-days-by-client': 'Working Days by Client',
 }
 
