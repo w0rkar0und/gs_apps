@@ -519,7 +519,8 @@ app.post('/report/settlement', async (req, res) => {
                 vmk.VehicleMakeName                         AS Make,
                 vmd.VehicleModelName                        AS Model,
                 vs.VehicleSupplierName                      AS Supplier,
-                v.VehicleSupplierId,
+                vot.VehicleOwnershipTypeName                AS OwnershipType,
+                CONVERT(VARCHAR, vot.IsOwnedByContractor)   AS IsOwnedByContractor,
                 CONVERT(VARCHAR, cv.FromDate, 103)          AS FromDate,
                 CONVERT(VARCHAR, cv.ToDate, 103)            AS ToDate
             FROM ContractorVehicle cv
@@ -527,6 +528,7 @@ app.post('/report/settlement', async (req, res) => {
             LEFT JOIN VehicleModel vmd ON vmd.VehicleModelId  = v.VehicleModelId
             LEFT JOIN VehicleMake vmk  ON vmk.VehicleMakeId   = vmd.VehicleMakeId
             JOIN VehicleSupplier vs  ON vs.VehicleSupplierId  = v.VehicleSupplierId
+            LEFT JOIN VehicleOwnershipType vot ON vot.VehicleOwnershipTypeId = cv.VehicleOwnershipTypeId
             WHERE cv.ContractorId = (SELECT ContractorId FROM Contractor WHERE HrCode = @HrCode)
               AND (cv.ToDate IS NULL OR CAST(cv.ToDate AS DATE) >= @DepositCreatedDate)
               AND CAST(cv.FromDate AS DATE) <= GETDATE()

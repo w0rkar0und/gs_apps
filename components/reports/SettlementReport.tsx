@@ -27,7 +27,8 @@ interface Vehicle {
   Make: string | null
   Model: string | null
   Supplier: string
-  VehicleSupplierId: number | null
+  OwnershipType: string | null
+  IsOwnedByContractor: string | null
   FromDate: string
   ToDate: string | null
 }
@@ -131,7 +132,7 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
     : undefined
 
   // Collapsed summary: vehicles — count non-DA (non-Greythorn) vehicles
-  const nonDaCount = (vehicles ?? []).filter(v => v.VehicleSupplierId !== 2).length
+  const nonDaCount = (vehicles ?? []).filter(v => v.IsOwnedByContractor !== '1').length
   const vehicleSummary = (vehicles ?? []).length > 0 && nonDaCount > 0
     ? `${nonDaCount} non-DA supplied vehicle${nonDaCount !== 1 ? 's' : ''}`
     : undefined
@@ -273,7 +274,7 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
               </thead>
               <tbody>
                 {(vehicles ?? []).map((v, i) => {
-                  const isNonGreythorn = v.VehicleSupplierId !== 2
+                  const isNonGreythorn = v.IsOwnedByContractor !== '1'
                   return (
                     <tr key={`${v.VRM}-${v.FromDate}`} className={`border-b border-slate-100 ${i % 2 === 1 ? 'bg-[#DEEAF1]/30' : ''} ${isNonGreythorn ? 'italic text-gray-400' : ''}`}>
                       <td className={cellClass}>{v.VRM}</td>
