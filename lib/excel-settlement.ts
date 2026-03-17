@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs'
 import {
   titleStyle, headerStyle, sectionStyle,
-  dataStyleEven, dataStyleOdd, totalStyle, nilStyle,
+  dataStyleEven, dataStyleOdd, totalStyle, nilStyle, greyItalicStyle,
 } from './excel-styles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -10,7 +10,7 @@ export async function generateSettlementExcel(data: any): Promise<Buffer> {
   const ws = wb.addWorksheet('Settlement Data', { views: [{ state: 'frozen', ySplit: 4 }] })
   ws.properties.showGridLines = false
 
-  const { contractor, accountStatus, deposit, transactions, charges, remittances } = data
+  const { contractor, accountStatus, deposit, transactions, vehicles, charges, remittances } = data
   const name = contractor ? `${contractor.HrCode} — ${contractor.FirstName} ${contractor.LastName}` : 'Unknown'
 
   // Title
@@ -90,10 +90,34 @@ export async function generateSettlementExcel(data: any): Promise<Buffer> {
 
   ws.addRow([])
 
-  // ── Section 3: Vehicle Charges ──
-  const s3 = ws.addRow(['Vehicle Charges'])
-  s3.eachCell((c) => { c.style = sectionStyle })
-  ws.mergeCells(s3.number, 1, s3.number, 7)
+  // ── Section 3: Vehicles Assigned ──
+  const vehicleTitle = deposit ? `Vehicles Assigned (since ${deposit.CreatedDate})` : 'Vehicles Assigned'
+  const s2b = ws.addRow([vehicleTitle])
+  s2b.eachCell((c) => { c.style = sectionStyle })
+  ws.mergeCells(s2b.number, 1, s2b.number, 6)
+
+  const h2b = ws.addRow(['VRM', 'Make', 'Model', 'Supplier', 'From', 'To'])
+  h2b.eachCell((c) => { c.style = headerStyle })
+
+  if (!vehicles || vehicles.length === 0) {
+    const nr = ws.addRow([deposit ? 'No vehicles assigned since the last deposit record.' : 'No deposit record — no date window to filter vehicles.'])
+    nr.eachCell((c) => { c.style = nilStyle })
+    ws.mergeCells(nr.number, 1, nr.number, 6)
+  } else {
+    vehicles.forEach((v: { VRM: string; Make: string | null; Model: string | null; Supplier: string; VehicleSupplierId: number | null; FromDate: string; ToDate: string | null }, i: number) => {
+      const isNonGreythorn = v.VehicleSupplierId !== 2
+      const style = isNonGreythorn ? greyItalicStyle : (i % 2 === 0 ? dataStyleEven : dataStyleOdd)
+      const r = ws.addRow([v.VRM, v.Make ?? '—', v.Model ?? '—', v.Supplier, v.FromDate, v.ToDate ?? 'Current'])
+      r.eachCell((c) => { c.style = style })
+    })
+  }
+
+  ws.addRow([])
+
+  // ── Section 4: Vehicle Charges ──
+  const s4 = ws.addRow(['Vehicle Charges'])
+  s4.eachCell((c) => { c.style = sectionStyle })
+  ws.mergeCells(s4.number, 1, s4.number, 7)
 
   const h3 = ws.addRow(['VRM', 'Reason', 'Reference', 'Issue Date', 'Charged', 'Paid', 'Outstanding'])
   h3.eachCell((c) => { c.style = headerStyle })
@@ -124,10 +148,10 @@ export async function generateSettlementExcel(data: any): Promise<Buffer> {
 
   ws.addRow([])
 
-  // ── Section 4: Recent Remittance Notices ──
-  const s4 = ws.addRow(['Recent Remittance Notices'])
-  s4.eachCell((c) => { c.style = sectionStyle })
-  ws.mergeCells(s4.number, 1, s4.number, 6)
+  // ── Section 5: Recent Remittance Notices ──
+  const s5 = ws.addRow(['Recent Remittance Notices'])
+  s5.eachCell((c) => { c.style = sectionStyle })
+  ws.mergeCells(s5.number, 1, s5.number, 6)
 
   const h4 = ws.addRow(['Year', 'Week', 'Debrief Pay', 'Additional Pay', 'Deductions', 'Total Pay'])
   h4.eachCell((c) => { c.style = headerStyle })

@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 interface Deposit {
   ContractorVehicleDepositId: number
   DepositAmount: number
@@ -18,6 +20,16 @@ interface Transaction {
   Amount: number
   Date: string
   CreatedBy: string | null
+}
+
+interface Vehicle {
+  VRM: string
+  Make: string | null
+  Model: string | null
+  Supplier: string
+  VehicleSupplierId: number | null
+  FromDate: string
+  ToDate: string | null
 }
 
 interface Charge {
@@ -59,11 +71,11 @@ interface SettlementReportData {
   accountStatus: AccountStatus | null
   deposit: Deposit | null
   transactions: Transaction[]
+  vehicles: Vehicle[]
   charges: Charge[]
   remittances: Remittance[]
 }
 
-const sectionHeading = "text-sm font-semibold text-white bg-[#2E75B6] px-4 py-2 rounded-t-lg"
 const tableHeader = "text-xs font-medium text-slate-500 uppercase tracking-wide"
 const cellClass = "py-2.5 px-4 text-sm text-slate-700"
 
@@ -71,8 +83,28 @@ function currency(val: number): string {
   return val.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
 }
 
+function CollapsibleSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full text-left text-sm font-semibold text-white bg-[#2E75B6] px-4 py-2 flex items-center justify-between rounded-t-lg"
+      >
+        {title}
+        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
 export default function SettlementReport({ data }: { data: SettlementReportData }) {
-  const { contractor, accountStatus, deposit, transactions, charges, remittances } = data
+  const { contractor, accountStatus, deposit, transactions, vehicles, charges, remittances } = data
 
   if (!contractor) {
     return (
@@ -115,8 +147,7 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
       </div>
 
       {/* Section 1: Last Deposit Record */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Last Deposit Record</div>
+      <CollapsibleSection title="Last Deposit Record">
         {!deposit ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No deposit record found for this contractor.</div>
         ) : (
@@ -157,11 +188,10 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
       {/* Section 2: Deposit Instalment Payments */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Deposit Instalment Payments</div>
+      <CollapsibleSection title="Deposit Instalment Payments">
         {!deposit ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No deposit record found for this contractor.</div>
         ) : transactions.length === 0 ? (
@@ -194,11 +224,49 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
-      {/* Section 3: Vehicle Charges */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Vehicle Charges</div>
+      {/* Section 3: Vehicles Since Deposit */}
+      <CollapsibleSection title={`Vehicles Assigned${deposit ? ` (since ${deposit.CreatedDate})` : ''}`}>
+        {(vehicles ?? []).length === 0 ? (
+          <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">
+            {deposit ? 'No vehicles assigned since the last deposit record.' : 'No deposit record — no date window to filter vehicles.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className={`${tableHeader} py-2.5 px-4 text-left`}>VRM</th>
+                  <th className={`${tableHeader} py-2.5 px-4 text-left`}>Make</th>
+                  <th className={`${tableHeader} py-2.5 px-4 text-left`}>Model</th>
+                  <th className={`${tableHeader} py-2.5 px-4 text-left`}>Supplier</th>
+                  <th className={`${tableHeader} py-2.5 px-4 text-left`}>From</th>
+                  <th className={`${tableHeader} py-2.5 px-4 text-left`}>To</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(vehicles ?? []).map((v, i) => {
+                  const isNonGreythorn = v.VehicleSupplierId !== 2
+                  return (
+                    <tr key={`${v.VRM}-${v.FromDate}`} className={`border-b border-slate-100 ${i % 2 === 1 ? 'bg-[#DEEAF1]/30' : ''} ${isNonGreythorn ? 'italic text-gray-400' : ''}`}>
+                      <td className={cellClass}>{v.VRM}</td>
+                      <td className={cellClass}>{v.Make ?? '—'}</td>
+                      <td className={cellClass}>{v.Model ?? '—'}</td>
+                      <td className={cellClass}>{v.Supplier}</td>
+                      <td className={cellClass}>{v.FromDate}</td>
+                      <td className={cellClass}>{v.ToDate ?? 'Current'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Section 4: Vehicle Charges */}
+      <CollapsibleSection title="Vehicle Charges">
         {charges.length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No vehicle charges found for this contractor during any Greythorn vehicle assignment window.</div>
         ) : (
@@ -239,11 +307,10 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
-      {/* Section 4: Last Two Remittance Notices */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Recent Remittance Notices</div>
+      {/* Section 5: Last Two Remittance Notices */}
+      <CollapsibleSection title="Recent Remittance Notices">
         {remittances.length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No remittance notices found for this contractor.</div>
         ) : (
@@ -274,7 +341,7 @@ export default function SettlementReport({ data }: { data: SettlementReportData 
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
     </div>
   )
 }

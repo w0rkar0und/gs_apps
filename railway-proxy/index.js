@@ -421,7 +421,7 @@ app.post('/report/settlement', async (req, res) => {
 
     const contractor = contractorResult.recordset[0] || null;
     if (!contractor) {
-      return res.json({ contractor: null, accountStatus: null, deposit: null, transactions: [], charges: [], remittances: [] });
+      return res.json({ contractor: null, accountStatus: null, deposit: null, transactions: [], vehicles: [], charges: [], remittances: [] });
     }
 
     // Account status: current status and last change details
@@ -454,6 +454,7 @@ app.post('/report/settlement', async (req, res) => {
 
     let deposit = null;
     let transactions = [];
+    let vehicles = [];
     const lastDepositId = depositIdResult.recordset[0]?.ContractorVehicleDepositId ?? null;
 
     if (lastDepositId) {
@@ -500,6 +501,39 @@ app.post('/report/settlement', async (req, res) => {
           ORDER BY t.CreatedAt
         `);
       transactions = txResult.recordset;
+
+      // Vehicles assigned since the deposit creation date
+      const depositDateResult = await p.request()
+        .input('LastDepositId2', sql.Int, lastDepositId)
+        .query(`SELECT CAST(CreatedAt AS DATE) AS DepositCreatedDate FROM ContractorVehicleDeposit WHERE ContractorVehicleDepositId = @LastDepositId2`);
+
+      const depositCreatedDate = depositDateResult.recordset[0]?.DepositCreatedDate ?? null;
+
+      if (depositCreatedDate) {
+        const vehicleResult = await p.request()
+          .input('HrCode', sql.VarChar, hrCode)
+          .input('DepositCreatedDate', sql.Date, depositCreatedDate)
+          .query(`
+            SELECT
+                v.RegistrationNumber                        AS VRM,
+                vmk.VehicleMakeName                         AS Make,
+                vmd.VehicleModelName                        AS Model,
+                vs.VehicleSupplierName                      AS Supplier,
+                v.VehicleSupplierId,
+                CONVERT(VARCHAR, cv.FromDate, 103)          AS FromDate,
+                CONVERT(VARCHAR, cv.ToDate, 103)            AS ToDate
+            FROM ContractorVehicle cv
+            JOIN Vehicle v           ON v.VehicleId           = cv.VehicleId
+            LEFT JOIN VehicleModel vmd ON vmd.VehicleModelId  = v.VehicleModelId
+            LEFT JOIN VehicleMake vmk  ON vmk.VehicleMakeId   = vmd.VehicleMakeId
+            JOIN VehicleSupplier vs  ON vs.VehicleSupplierId  = v.VehicleSupplierId
+            WHERE cv.ContractorId = (SELECT ContractorId FROM Contractor WHERE HrCode = @HrCode)
+              AND (cv.ToDate IS NULL OR CAST(cv.ToDate AS DATE) >= @DepositCreatedDate)
+              AND CAST(cv.FromDate AS DATE) <= GETDATE()
+            ORDER BY cv.FromDate
+          `);
+        vehicles = vehicleResult.recordset;
+      }
     }
 
     // Part 3: Vehicle charges (independent of deposit)
@@ -561,6 +595,7 @@ app.post('/report/settlement', async (req, res) => {
       accountStatus,
       deposit,
       transactions,
+      vehicles,
       charges: chargesResult.recordset,
       remittances: remittancesResult.recordset,
     });
