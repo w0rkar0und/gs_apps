@@ -528,7 +528,7 @@ app.post('/report/settlement', async (req, res) => {
             LEFT JOIN VehicleModel vmd ON vmd.VehicleModelId  = v.VehicleModelId
             LEFT JOIN VehicleMake vmk  ON vmk.VehicleMakeId   = vmd.VehicleMakeId
             JOIN VehicleSupplier vs  ON vs.VehicleSupplierId  = v.VehicleSupplierId
-            LEFT JOIN VehicleOwnershipType vot ON vot.VehicleOwnershipTypeId = cv.VehicleOwnershipTypeId
+            LEFT JOIN VehicleOwnershipType vot ON vot.VehicleOwnershipTypeId = v.VehicleOwnershipTypeId
             WHERE cv.ContractorId = (SELECT ContractorId FROM Contractor WHERE HrCode = @HrCode)
               AND (cv.ToDate IS NULL OR CAST(cv.ToDate AS DATE) >= @DepositCreatedDate)
               AND CAST(cv.FromDate AS DATE) <= GETDATE()
