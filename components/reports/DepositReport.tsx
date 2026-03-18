@@ -1,5 +1,7 @@
 'use client'
 
+import React, { useState } from 'react'
+
 interface Transaction {
   ContractorVehicleDepositTransactionId: number
   Amount: number
@@ -67,12 +69,36 @@ interface DepositReportData {
   depositReturns: DepositReturn[]
 }
 
-const sectionHeading = "text-sm font-semibold text-white bg-[#2E75B6] px-4 py-2 rounded-t-lg"
 const tableHeader = "text-xs font-medium text-slate-500 uppercase tracking-wide"
 const cellClass = "py-2.5 px-4 text-sm text-slate-700"
 
 function currency(val: number): string {
   return val.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
+}
+
+function CollapsibleSection({ title, collapsedSummary, defaultOpen = true, children }: { title: string; collapsedSummary?: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full text-left text-sm font-semibold text-white bg-[#2E75B6] px-4 py-2 flex items-center justify-between rounded-t-lg"
+      >
+        <span className="flex items-center gap-3">
+          {title}
+          {!open && collapsedSummary && (
+            <span className="font-normal text-xs text-blue-100/80">{collapsedSummary}</span>
+          )}
+        </span>
+        <svg className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+      {open && children}
+    </div>
+  )
 }
 
 export default function DepositReport({ data }: { data: DepositReportData }) {
@@ -86,6 +112,47 @@ export default function DepositReport({ data }: { data: DepositReportData }) {
     )
   }
 
+  // Derived values for deposit section summary
+  const allTransactions = deposits.flatMap(d => d.transactions)
+  const activeTransactions = allTransactions.filter(t => !t.IsDeleted)
+  const totalPayments = activeTransactions.reduce((s, t) => s + t.Amount, 0)
+  const activeDeposits = deposits.filter(d => !d.IsCancelled)
+  const depositSummaryParts: string[] = []
+  if (deposits.length > 0) {
+    depositSummaryParts.push(`${deposits.length} deposit${deposits.length !== 1 ? 's' : ''}`)
+    if (activeTransactions.length > 0) depositSummaryParts.push(`${currency(totalPayments)} collected`)
+  }
+  const depositSummary = depositSummaryParts.length > 0 ? depositSummaryParts.join(' · ') : undefined
+
+  // Derived values for vehicle section summary
+  const greythornVehicleCount = vehicles.filter(v => v.VehicleSupplierId === 2).length
+  const vehicleSummaryParts: string[] = []
+  if (vehicles.length > 0) {
+    vehicleSummaryParts.push(`${vehicles.length} vehicle${vehicles.length !== 1 ? 's' : ''}`)
+    if (greythornVehicleCount > 0) vehicleSummaryParts.push(`${greythornVehicleCount} Greythorn`)
+  }
+  const vehicleSummary = vehicleSummaryParts.length > 0 ? vehicleSummaryParts.join(' · ') : undefined
+
+  // Derived values for charges section summary
+  const partialPaidCount = charges.filter(ch => ch.Paid > 0 && ch.Outstanding > 0).length
+  const unpaidCount = charges.filter(ch => ch.Paid === 0 && ch.Outstanding > 0).length
+  const totalOutstanding = charges.reduce((s, c) => s + c.Outstanding, 0)
+  const chargeSummaryParts: string[] = []
+  if (partialPaidCount > 0) chargeSummaryParts.push(`${partialPaidCount} partial paid`)
+  if (unpaidCount > 0) chargeSummaryParts.push(`${unpaidCount} unpaid`)
+  if (totalOutstanding > 0) chargeSummaryParts.push(`${currency(totalOutstanding)} outstanding`)
+  const chargeSummary = chargeSummaryParts.length > 0 ? chargeSummaryParts.join(' · ') : undefined
+
+  // Derived values for deposit return summary
+  const activeReturns = depositReturns.filter(dr => !dr.IsDeleted)
+  const totalReturned = activeReturns.reduce((s, dr) => s + dr.Amount, 0)
+  const returnSummaryParts: string[] = []
+  if (depositReturns.length > 0) {
+    returnSummaryParts.push(`${activeReturns.length} return${activeReturns.length !== 1 ? 's' : ''}`)
+    if (totalReturned > 0) returnSummaryParts.push(`${currency(totalReturned)} total`)
+  }
+  const returnSummary = returnSummaryParts.length > 0 ? returnSummaryParts.join(' · ') : undefined
+
   return (
     <div className="space-y-6">
       {/* Contractor header */}
@@ -98,8 +165,7 @@ export default function DepositReport({ data }: { data: DepositReportData }) {
       </div>
 
       {/* Section 1: Deposit Details */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Deposit Details</div>
+      <CollapsibleSection title="Deposit Details" collapsedSummary={depositSummary}>
         {deposits.length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No deposit records found.</div>
         ) : (
@@ -120,8 +186,8 @@ export default function DepositReport({ data }: { data: DepositReportData }) {
               </thead>
               <tbody>
                 {deposits.map((d, i) => (
-                  <>
-                    <tr key={d.ContractorVehicleDepositId} className={`border-b border-slate-100 ${i % 2 === 1 ? 'bg-[#DEEAF1]/30' : ''} ${d.IsCancelled ? 'opacity-60' : ''}`}>
+                  <React.Fragment key={d.ContractorVehicleDepositId}>
+                    <tr className={`border-b border-slate-100 ${i % 2 === 1 ? 'bg-[#DEEAF1]/30' : ''} ${d.IsCancelled ? 'opacity-60' : ''}`}>
                       <td className={cellClass}>{currency(d.DepositAmount)}</td>
                       <td className={cellClass}>{d.DepositWeeks}</td>
                       <td className={cellClass}>
@@ -154,17 +220,24 @@ export default function DepositReport({ data }: { data: DepositReportData }) {
                         <td colSpan={4} />
                       </tr>
                     ))}
-                  </>
+                  </React.Fragment>
                 ))}
+                {activeTransactions.length > 0 && (
+                  <tr className="bg-[#E2EFDA]/50">
+                    <td className={`${cellClass} font-semibold`}>{currency(totalPayments)}</td>
+                    <td colSpan={8} className={`${cellClass} font-semibold`}>
+                      Total deposit payments collected ({activeTransactions.length} transaction{activeTransactions.length !== 1 ? 's' : ''})
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
       {/* Section 2: Vehicle Usage History */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Vehicle Usage History</div>
+      <CollapsibleSection title="Vehicle Usage History" collapsedSummary={vehicleSummary}>
         {vehicles.length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No vehicle records found.</div>
         ) : (
@@ -198,11 +271,10 @@ export default function DepositReport({ data }: { data: DepositReportData }) {
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
       {/* Section 3: Vehicle Charges */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Vehicle Charges</div>
+      <CollapsibleSection title="Vehicle Charges" collapsedSummary={chargeSummary}>
         {charges.length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No vehicle charges found.</div>
         ) : (
@@ -243,11 +315,10 @@ export default function DepositReport({ data }: { data: DepositReportData }) {
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
       {/* Section 4: Deposit Return Audit */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className={sectionHeading}>Deposit Return Audit</div>
+      <CollapsibleSection title="Deposit Return Audit" collapsedSummary={returnSummary}>
         {depositReturns.length === 0 ? (
           <div className="bg-amber-50 px-4 py-3 text-sm text-amber-800 italic">No Deposit Return record found.</div>
         ) : (
@@ -274,7 +345,7 @@ export default function DepositReport({ data }: { data: DepositReportData }) {
             </table>
           </div>
         )}
-      </div>
+      </CollapsibleSection>
     </div>
   )
 }
