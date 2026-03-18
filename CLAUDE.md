@@ -548,11 +548,15 @@ Report access is controlled at two levels:
 
 Admins bypass both levels.
 
-### Deposit Report (4 sections)
-1. **Deposit Details** — all deposit records with transaction audit trail (deleted transactions filtered out)
-2. **Vehicle Usage History** — all vehicles, non-Greythorn in italic grey
-3. **Vehicle Charges** — Greythorn vehicles only, with payment status and totals
-4. **Deposit Return Audit** — ContractorAdditionalPay where reason = 7
+### Deposit Report (5 collapsible sections)
+- Per-contractor deposit summary with 5 collapsible sections (chevron toggle, open by default) — same pattern as Settlement report
+- **Section 1: Last Deposit Record** — latest `ContractorVehicleDeposit` with audit trail (created/updated/cancelled by)
+- **Section 2: Deposit Instalment Payments** — transactions on the last deposit, with totals summary. Collapsed header shows weeks paid + remaining
+- **Section 3: Vehicle Usage History** — all vehicles, non-Greythorn in italic grey. Collapsed header shows vehicle count + Greythorn count
+- **Section 4: Vehicle Charges** — Greythorn vehicles only, with payment status and totals. Collapsed header shows partial paid count, unpaid count, total outstanding
+- **Section 5: Deposit Return Audit** — ContractorAdditionalPay where reason = 7. Collapsed header shows return count + total amount
+- **Split query pattern**: Part 1A isolates deposit ID lookup (no JOINs) to avoid SQL Server bit+JOIN silent failure, Part 1B fetches full details by PK
+- Response shape: `{ contractor, deposit, transactions, vehicles, charges, depositReturns }`
 
 ### Contractor - Working Day Count
 - Per-contractor, per-week summary from approved debriefs + current-week rota projections
@@ -683,7 +687,7 @@ Query version: `v1.0`. Half-day rule applies to: `NL 1%`, `NL 2%`, `NL 3%`, `Nur
 
 ---
 
-## Current State (as of 17 March 2026)
+## Current State (as of 18 March 2026)
 
 ### Multi-App Platform — Live, Pushed to GitHub
 
@@ -716,6 +720,7 @@ All 8 build phases complete plus additional reports. Reports app is live at `/re
 - Phase 8: Resend email delivery with .xlsx attachment
 - Additional: Working Days by Client report with visualisations (filters + Recharts + grouped table)
 - Additional: DA Relations Settlement Data report — 5 collapsible sections with collapsed header summaries, account status, vehicles since deposit, vehicle charges, remittances
+- Deposit report updated: now uses split query pattern (like Settlement), shows only most recent deposit with instalment payments as separate section, 5 collapsible sections with collapsed header summaries
 
 ### Build Configuration
 
@@ -737,7 +742,7 @@ Check which migrations have been applied to Supabase. The following exist in the
 - **Admin:** m.patel (external, is_admin: true) — platform superadmin
 - **12 recruiter accounts** — internal, granted `referrals` app access
 - **165 referrals** seeded from 2025 data
-- **3,440 contractors** synced from Greythorn
+- **3,441 contractors** synced from Greythorn (last sync: 18 March 2026)
 
 ### Key Technical Decisions
 
