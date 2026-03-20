@@ -48,7 +48,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#b1b0b0' }}>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-300 to-slate-400">
       <div className="w-full max-w-sm mx-4">
         <div className="text-center mb-8">
           <Image

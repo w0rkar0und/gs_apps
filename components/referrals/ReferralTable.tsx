@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import type { Referral } from '@/lib/types'
 import SortableHeader, { useSort } from './SortableHeader'
 import SearchInput from './SearchInput'
@@ -38,8 +39,20 @@ export default function ReferralTable({ referrals }: { referrals: EnrichedReferr
 
   if (referrals.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <p>You have no referrals registered yet.</p>
+      <div className="text-center py-12">
+        <svg className="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-1.997m0 0A8.961 8.961 0 0 1 12 15.75c-1.99 0-3.832.648-5.323 1.747" />
+        </svg>
+        <p className="text-slate-500 mb-3">You have no referrals registered yet.</p>
+        <Link
+          href="/referrals/submit"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
+          Register your first referral
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
+        </Link>
       </div>
     )
   }

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import ReferralTable from '@/components/referrals/ReferralTable'
+import SuccessToast from '@/components/referrals/SuccessToast'
 
 export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ submitted?: string }> }) {
   const supabase = await createClient()
@@ -44,9 +45,7 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
         <h1 className="text-xl font-semibold text-slate-900 mb-6">My Referrals</h1>
 
         {justSubmitted && (
-          <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
-            Referral submitted successfully.
-          </div>
+          <SuccessToast message="Referral submitted successfully." />
         )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
