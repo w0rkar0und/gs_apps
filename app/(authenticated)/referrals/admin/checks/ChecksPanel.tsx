@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SortableHeader, { useSort } from '@/components/referrals/SortableHeader'
 import SearchInput from '@/components/referrals/SearchInput'
+import type { CheckResult } from '@/lib/types'
+
+const MAX_CHECK_SELECTION = 4
 
 interface Referral {
   recruited_hr_code: string
@@ -14,16 +17,6 @@ interface Referral {
   start_date: string
   qwylo_active?: boolean | null
   qwylo_status_date?: string | null
-}
-
-interface CheckResult {
-  hr_code: string
-  name: string
-  outcome: 'approved' | 'not_yet_eligible' | 'skipped' | 'error'
-  working_days_total?: number
-  days_remaining?: number
-  discrepancy?: boolean
-  reason?: string
 }
 
 function formatDate(dateStr: string | null): string {
@@ -81,7 +74,7 @@ export default function ChecksPanel({
       const next = new Set(prev)
       if (next.has(hrCode)) {
         next.delete(hrCode)
-      } else if (next.size < 4) {
+      } else if (next.size < MAX_CHECK_SELECTION) {
         next.add(hrCode)
       }
       return next
@@ -113,7 +106,7 @@ export default function ChecksPanel({
   }
 
   function selectAllVisible() {
-    const codes = sorted.map((r) => r.recruited_hr_code).slice(0, 4)
+    const codes = sorted.map((r) => r.recruited_hr_code).slice(0, MAX_CHECK_SELECTION)
     setSelected(new Set(codes))
   }
 
@@ -205,10 +198,10 @@ export default function ChecksPanel({
             </button>
             <span className="text-xs text-gray-500">
               {selected.size === 0
-                ? 'Select 1–4 referrals to run a check'
-                : selected.size >= 4
-                ? 'Maximum 4 selected'
-                : `${selected.size} selected, up to 4`}
+                ? `Select 1–${MAX_CHECK_SELECTION} referrals to run a check`
+                : selected.size >= MAX_CHECK_SELECTION
+                ? `Maximum ${MAX_CHECK_SELECTION} selected`
+                : `${selected.size} selected, up to ${MAX_CHECK_SELECTION}`}
             </span>
           </div>
 

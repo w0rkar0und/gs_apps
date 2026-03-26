@@ -648,93 +648,93 @@ app.post('/report/referral-check', async (req, res) => {
 
     const results = {};
 
-    for (const hrCode of hrCodes) {
+    await Promise.all(hrCodes.map(async (hrCode) => {
       const startDate = startDates[hrCode];
       if (!startDate) {
         results[hrCode] = { error: 'No start date provided' };
-        continue;
+        return;
       }
 
       try {
-        // Part 1: Approved debriefs since start date
-        const approvedResult = await p.request()
-          .input('HrCode', sql.VarChar, hrCode)
-          .input('StartDate', sql.Date, startDate)
-          .query(`
-            SELECT
-              c.HrCode,
-              up.FirstName + ' ' + up.LastName AS Name,
-              cal.GtEpochYear AS [Year],
-              cal.GtEpochWeek AS [Week],
-              MIN(CONVERT(VARCHAR, d.Date, 103)) AS WeekStart,
-              MAX(CONVERT(VARCHAR, d.Date, 103)) AS WeekEnd,
-              'Approved' AS Source,
-              CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
-              COUNT(*) AS ShiftCount
-            FROM Debrief d
-            JOIN Contractor c ON c.ContractorId = d.ContractorId
-            JOIN [User] u ON u.UserId = c.UserId
-            JOIN UserProfile up ON up.UserId = u.UserId
-            JOIN Calendar cal ON cal.Date = CAST(d.Date AS DATE)
-            JOIN ContractType ct ON ct.ContractTypeId = d.ContractTypeId
-            WHERE c.HrCode = @HrCode
-              AND d.IsApproved = 1
-              AND CAST(d.Date AS DATE) >= @StartDate
-            GROUP BY c.HrCode, up.FirstName, up.LastName,
-                     cal.GtEpochYear, cal.GtEpochWeek, ct.ContractTypeName
-            ORDER BY cal.GtEpochYear, cal.GtEpochWeek
-          `);
-
-        // Part 2: Current week rota projection
-        const rotaResult = await p.request()
-          .input('HrCode', sql.VarChar, hrCode)
-          .input('CurrentYear', sql.Int, currentYear)
-          .input('CurrentWeek', sql.Int, currentWeek)
-          .input('StartDate', sql.Date, startDate)
-          .query(`
-            SELECT
-              c.HrCode,
-              up.FirstName + ' ' + up.LastName AS Name,
-              cal.GtEpochYear AS [Year],
-              cal.GtEpochWeek AS [Week],
-              MIN(CONVERT(VARCHAR, r.Date, 103)) AS WeekStart,
-              MAX(CONVERT(VARCHAR, r.Date, 103)) AS WeekEnd,
-              'Rota (Projected)' AS Source,
-              CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
-              COUNT(*) AS ShiftCount
-            FROM ContractorRota r
-            JOIN Contractor c ON c.ContractorId = r.ContractorId
-            JOIN [User] u ON u.UserId = c.UserId
-            JOIN UserProfile up ON up.UserId = u.UserId
-            JOIN Calendar cal ON cal.Date = CAST(r.Date AS DATE)
-            JOIN RotaActivity ra ON ra.RotaActivityId = r.RotaActivityId
-            JOIN ContractType ct ON ct.ContractTypeId = r.ContractTypeId
-            WHERE c.HrCode = @HrCode
-              AND cal.GtEpochYear = @CurrentYear
-              AND cal.GtEpochWeek = @CurrentWeek
-              AND ra.IsNonWork = 0
-              AND CAST(r.Date AS DATE) >= @StartDate
-              AND NOT EXISTS (
-                SELECT 1 FROM Debrief d
-                WHERE d.ContractorId = r.ContractorId
-                  AND CAST(d.Date AS DATE) = CAST(r.Date AS DATE)
-                  AND d.IsApproved = 1
-              )
-            GROUP BY c.HrCode, up.FirstName, up.LastName,
-                     cal.GtEpochYear, cal.GtEpochWeek, ct.ContractTypeName
-          `);
-
-        // First rota date (discrepancy check)
-        const firstRotaResult = await p.request()
-          .input('HrCode', sql.VarChar, hrCode)
-          .query(`
-            SELECT MIN(CAST(r.Date AS DATE)) AS FirstRotaDate
-            FROM ContractorRota r
-            JOIN Contractor c ON c.ContractorId = r.ContractorId
-            JOIN RotaActivity ra ON ra.RotaActivityId = r.RotaActivityId
-            WHERE c.HrCode = @HrCode
-              AND ra.IsNonWork = 0
-          `);
+        const [approvedResult, rotaResult, firstRotaResult] = await Promise.all([
+          // Part 1: Approved debriefs since start date
+          p.request()
+            .input('HrCode', sql.VarChar, hrCode)
+            .input('StartDate', sql.Date, startDate)
+            .query(`
+              SELECT
+                c.HrCode,
+                up.FirstName + ' ' + up.LastName AS Name,
+                cal.GtEpochYear AS [Year],
+                cal.GtEpochWeek AS [Week],
+                MIN(CONVERT(VARCHAR, d.Date, 103)) AS WeekStart,
+                MAX(CONVERT(VARCHAR, d.Date, 103)) AS WeekEnd,
+                'Approved' AS Source,
+                CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
+                COUNT(*) AS ShiftCount
+              FROM Debrief d
+              JOIN Contractor c ON c.ContractorId = d.ContractorId
+              JOIN [User] u ON u.UserId = c.UserId
+              JOIN UserProfile up ON up.UserId = u.UserId
+              JOIN Calendar cal ON cal.Date = CAST(d.Date AS DATE)
+              JOIN ContractType ct ON ct.ContractTypeId = d.ContractTypeId
+              WHERE c.HrCode = @HrCode
+                AND d.IsApproved = 1
+                AND CAST(d.Date AS DATE) >= @StartDate
+              GROUP BY c.HrCode, up.FirstName, up.LastName,
+                       cal.GtEpochYear, cal.GtEpochWeek, ct.ContractTypeName
+              ORDER BY cal.GtEpochYear, cal.GtEpochWeek
+            `),
+          // Part 2: Current week rota projection
+          p.request()
+            .input('HrCode', sql.VarChar, hrCode)
+            .input('CurrentYear', sql.Int, currentYear)
+            .input('CurrentWeek', sql.Int, currentWeek)
+            .input('StartDate', sql.Date, startDate)
+            .query(`
+              SELECT
+                c.HrCode,
+                up.FirstName + ' ' + up.LastName AS Name,
+                cal.GtEpochYear AS [Year],
+                cal.GtEpochWeek AS [Week],
+                MIN(CONVERT(VARCHAR, r.Date, 103)) AS WeekStart,
+                MAX(CONVERT(VARCHAR, r.Date, 103)) AS WeekEnd,
+                'Rota (Projected)' AS Source,
+                CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
+                COUNT(*) AS ShiftCount
+              FROM ContractorRota r
+              JOIN Contractor c ON c.ContractorId = r.ContractorId
+              JOIN [User] u ON u.UserId = c.UserId
+              JOIN UserProfile up ON up.UserId = u.UserId
+              JOIN Calendar cal ON cal.Date = CAST(r.Date AS DATE)
+              JOIN RotaActivity ra ON ra.RotaActivityId = r.RotaActivityId
+              JOIN ContractType ct ON ct.ContractTypeId = r.ContractTypeId
+              WHERE c.HrCode = @HrCode
+                AND cal.GtEpochYear = @CurrentYear
+                AND cal.GtEpochWeek = @CurrentWeek
+                AND ra.IsNonWork = 0
+                AND CAST(r.Date AS DATE) >= @StartDate
+                AND NOT EXISTS (
+                  SELECT 1 FROM Debrief d
+                  WHERE d.ContractorId = r.ContractorId
+                    AND CAST(d.Date AS DATE) = CAST(r.Date AS DATE)
+                    AND d.IsApproved = 1
+                )
+              GROUP BY c.HrCode, up.FirstName, up.LastName,
+                       cal.GtEpochYear, cal.GtEpochWeek, ct.ContractTypeName
+            `),
+          // First rota date (discrepancy check)
+          p.request()
+            .input('HrCode', sql.VarChar, hrCode)
+            .query(`
+              SELECT MIN(CAST(r.Date AS DATE)) AS FirstRotaDate
+              FROM ContractorRota r
+              JOIN Contractor c ON c.ContractorId = r.ContractorId
+              JOIN RotaActivity ra ON ra.RotaActivityId = r.RotaActivityId
+              WHERE c.HrCode = @HrCode
+                AND ra.IsNonWork = 0
+            `),
+        ]);
 
         const firstRotaDate = firstRotaResult.recordset[0]?.FirstRotaDate ?? null;
 
@@ -746,7 +746,7 @@ app.post('/report/referral-check', async (req, res) => {
       } catch (err) {
         results[hrCode] = { error: err.message };
       }
-    }
+    }));
 
     res.json({
       currentEpoch: { year: currentYear, week: currentWeek },

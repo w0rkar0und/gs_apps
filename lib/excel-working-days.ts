@@ -3,16 +3,7 @@ import {
   titleStyle, headerStyle, sectionStyle,
   dataStyleEven, dataStyleOdd, totalStyle, nilStyle, projectedStyle,
 } from './excel-styles'
-
-const HALF_DAY_PATTERNS = [
-  /^NL 1/i, /^NL 2/i, /^NL 3/i,
-  /^Nursery 1/i, /^Nursery 2/i,
-  /^Nursery L1/i, /^Nursery L2/i, /^Nursery L3/i,
-]
-
-function isHalfDay(contractType: string): boolean {
-  return HALF_DAY_PATTERNS.some((p) => p.test(contractType))
-}
+import { isHalfDay } from './working-days'
 
 interface Row {
   HrCode: string; Name: string; Year: number; Week: number

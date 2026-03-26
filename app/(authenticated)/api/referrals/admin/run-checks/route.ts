@@ -3,24 +3,11 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { Resend } from 'resend'
+import { calcWorkingDays } from '@/lib/working-days'
+import type { CheckResult } from '@/lib/types'
 
 const QUERY_VERSION = 'v1.0'
 const THRESHOLD_DAYS = 30
-
-const HALF_DAY_PREFIXES = [
-  'NL 1', 'NL 2', 'NL 3',
-  'Nursery 1', 'Nursery 2',
-  'Nursery L1', 'Nursery L2', 'Nursery L3',
-]
-
-function isHalfDay(contractType: string): boolean {
-  const ct = contractType.trim()
-  return HALF_DAY_PREFIXES.some(prefix => ct.startsWith(prefix))
-}
-
-function calcWorkingDays(shiftCount: number, contractType: string): number {
-  return isHalfDay(contractType) ? shiftCount * 0.5 : shiftCount
-}
 
 interface RawRow {
   HrCode: string
@@ -49,16 +36,6 @@ function processRows(rows: RawRow[]) {
       working_days: calcWorkingDays(shiftCount, contractType),
     }
   })
-}
-
-interface CheckResult {
-  hr_code: string
-  name: string
-  outcome: 'approved' | 'not_yet_eligible' | 'skipped' | 'error'
-  working_days_total?: number
-  days_remaining?: number
-  discrepancy?: boolean
-  reason?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -164,21 +141,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to connect to report service.' }, { status: 502 })
     }
 
-    // Process each HR code
+    // Process each HR code concurrently
     const now = new Date().toISOString()
 
-    for (const hrCode of hrCodesToCheck) {
+    const checkResults = await Promise.all(hrCodesToCheck.map(async (hrCode): Promise<CheckResult> => {
       const referral = referralMap.get(hrCode)!
       const raw = proxyData.results[hrCode]
 
       if (!raw || raw.error) {
-        results.push({
+        return {
           hr_code: hrCode,
           name: referral.recruited_name,
           outcome: 'error',
           reason: raw?.error || 'No data returned',
-        })
-        continue
+        }
       }
 
       const part1 = processRows(raw.approved || [])
@@ -211,7 +187,7 @@ export async function POST(request: NextRequest) {
         rows: [...part1, ...part2],
       }
 
-      // Write to referral_checks
+      // Write audit trail then update referral
       await serviceClient.from('referral_checks').insert({
         referral_id: referral.id,
         checked_at: now,
@@ -225,7 +201,6 @@ export async function POST(request: NextRequest) {
         check_detail: checkDetail,
       })
 
-      // Update referrals table
       const updateData: Record<string, unknown> = {
         working_days_approved: workingDaysApproved,
         working_days_projected: workingDaysProjected,
@@ -245,15 +220,17 @@ export async function POST(request: NextRequest) {
       await serviceClient.from('referrals').update(updateData).eq('id', referral.id)
 
       const finalStatus = (updateData.status as string) || referral.status
-      results.push({
+      return {
         hr_code: hrCode,
         name: referral.recruited_name,
         outcome: finalStatus === 'approved' ? 'approved' : 'not_yet_eligible',
         working_days_total: workingDaysTotal,
         days_remaining: Math.max(0, THRESHOLD_DAYS - workingDaysTotal),
         discrepancy: startDateDiscrepancyFlag,
-      })
-    }
+      }
+    }))
+
+    results.push(...checkResults)
   }
 
   // Send summary email

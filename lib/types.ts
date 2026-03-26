@@ -62,6 +62,16 @@ export interface SyncLogEntry {
   triggered_by: 'scheduled' | 'manual'
 }
 
+export interface CheckResult {
+  hr_code: string
+  name: string
+  outcome: 'approved' | 'not_yet_eligible' | 'skipped' | 'error'
+  working_days_total?: number
+  days_remaining?: number
+  discrepancy?: boolean
+  reason?: string
+}
+
 export interface UserApp {
   id: string
   user_id: string

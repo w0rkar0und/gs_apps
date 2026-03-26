@@ -1,5 +1,7 @@
 'use client'
 
+import { calcWorkingDays } from '@/lib/working-days'
+
 interface WorkingDayRow {
   HrCode: string
   Name: string
@@ -26,18 +28,8 @@ interface WorkingDaysData {
   projected: WorkingDayRow[]
 }
 
-const HALF_DAY_PATTERNS = [
-  /^NL 1/i, /^NL 2/i, /^NL 3/i,
-  /^Nursery 1/i, /^Nursery 2/i,
-  /^Nursery L1/i, /^Nursery L2/i, /^Nursery L3/i,
-]
-
-function isHalfDay(contractType: string): boolean {
-  return HALF_DAY_PATTERNS.some((p) => p.test(contractType))
-}
-
 function calculateDays(row: WorkingDayRow): number {
-  return row.ShiftCount * (isHalfDay(row.ContractType) ? 0.5 : 1.0)
+  return calcWorkingDays(row.ShiftCount, row.ContractType)
 }
 
 const sectionHeading = "text-sm font-semibold text-white bg-[#2E75B6] px-4 py-2 rounded-t-lg"
