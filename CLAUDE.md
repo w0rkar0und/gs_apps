@@ -74,6 +74,7 @@ gs_apps/
 │   │       │   └── update-user/route.ts # Platform user edit/deactivate/delete
 │   │       ├── referrals/admin/
 │   │       │   ├── run-checks/route.ts      # Run Check from UI (admin, max 4)
+│   │       │   ├── run-sync/route.ts        # Contractor sync from UI (admin)
 │   │       │   └── update-referral/route.ts
 │   │       └── reports/
 │   │           ├── deposit/route.ts             # Proxy → Railway deposit report
@@ -430,6 +431,7 @@ CREATE TRIGGER on_auth_user_created
   api/platform/admin/create-user     → Platform user creation (service role)
   api/platform/admin/update-user     → Platform user edit/deactivate/delete (service role)
   api/referrals/admin/run-checks      → Run Check from UI (admin, max 4 HR codes)
+  api/referrals/admin/run-sync        → Contractor sync from UI (admin only)
   api/referrals/admin/update-referral → Admin referral updates (service role)
   api/reports/deposit                → Deposit report proxy
   api/reports/working-days           → Working day count proxy
@@ -510,6 +512,7 @@ A Node.js/Express service deployed on Railway with static outbound IPs, used to 
 | POST | `/report/working-days-by-client` | `{}` | Fleet-wide weighted days by client/branch/contract type |
 | POST | `/report/settlement` | `{ hrCode }` | DA Relations settlement — deposit, vehicles, charges, remittances |
 | POST | `/report/referral-check` | `{ hrCodes, startDates }` | Working day check for 1-4 referrals — approved debriefs, rota projections, first rota date |
+| POST | `/report/contractor-sync` | `{}` | All contractors — HrCode, name, active status, last worked date |
 
 ### Request flow
 ```
@@ -715,6 +718,7 @@ All 11 original build phases complete. Referrals app is live at `/referrals/*`.
 - Success toast: auto-dismisses after 4s with fade animation, cleans URL query param
 - Empty state: icon + "Register your first referral" CTA link
 - **Run Check from UI** — admin can select 1-4 referrals on `/referrals/admin/checks` and run working day checks directly from the browser (no Python script needed). Flow: ChecksPanel → Vercel API route (`/api/referrals/admin/run-checks`) → Railway proxy (`/report/referral-check`) → Greythorn SQL → results written to Supabase + summary email via Resend. Same logic as `referral_check.py` (half-day rules, threshold check, discrepancy detection, `referral_checks` audit trail). Max 4 HR codes per run, admin-only. Existing copy-paste commands retained as fallback for `--all` or terminal use.
+- **Self-service Contractor Sync** — "Run Sync" button on the admin dashboard (`SyncStatusBanner`) triggers contractor sync from the browser. Flow: SyncStatusBanner → Vercel API route (`/api/referrals/admin/run-sync`) → Railway proxy (`/report/contractor-sync`) → Greythorn SQL → batch upsert to Supabase `contractors` table → `sync_log` entry with `triggered_by: 'manual'`. Ports the same SQL query from `contractor_sync.py`. Daily GitHub Actions run (`contractor-sync.yml`) unchanged as the automated scheduled sync.
 
 ### Referrals User Guide — Created
 

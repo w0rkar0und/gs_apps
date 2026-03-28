@@ -758,6 +758,53 @@ app.post('/report/referral-check', async (req, res) => {
   }
 });
 
+// ── Contractor Sync ──
+app.post('/report/contractor-sync', async (req, res) => {
+  try {
+    const p = await getPool();
+
+    const result = await p.request().query(`
+      SELECT
+          c.HrCode,
+          up.FirstName,
+          up.LastName,
+          COALESCE(acct.Active, 1) AS IsActive,
+          CONVERT(VARCHAR(10), MAX(CAST(d.Date AS DATE)), 120) AS LastWorkedDate,
+          acct.CreatedAt AS StatusChangedAt
+      FROM Contractor c
+      JOIN [User] u ON u.UserId = c.UserId
+      JOIN UserProfile up ON up.UserId = u.UserId
+      LEFT JOIN Debrief d ON d.ContractorId = c.ContractorId AND d.IsApproved = 1
+      LEFT JOIN (
+          SELECT h.ContractorId, h.Active, h.CreatedAt
+          FROM ContractorAccountStatusHistory h
+          INNER JOIN (
+              SELECT ContractorId, MAX(CreatedAt) AS MaxCreatedAt
+              FROM ContractorAccountStatusHistory
+              GROUP BY ContractorId
+          ) latest ON h.ContractorId = latest.ContractorId AND h.CreatedAt = latest.MaxCreatedAt
+      ) acct ON acct.ContractorId = c.ContractorId
+      GROUP BY c.HrCode, up.FirstName, up.LastName, acct.Active, acct.CreatedAt
+      ORDER BY c.HrCode
+    `);
+
+    res.json({
+      contractors: result.recordset.map(row => ({
+        HrCode: row.HrCode,
+        FirstName: row.FirstName,
+        LastName: row.LastName,
+        IsActive: !!row.IsActive,
+        LastWorkedDate: row.LastWorkedDate || null,
+        StatusChangedAt: row.StatusChangedAt ? row.StatusChangedAt.toISOString() : null,
+      })),
+      count: result.recordset.length,
+    });
+  } catch (err) {
+    console.error('Contractor sync error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Start server ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
