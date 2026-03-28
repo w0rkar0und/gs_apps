@@ -758,6 +758,85 @@ app.post('/report/referral-check', async (req, res) => {
   }
 });
 
+// ── Branch/Client Performance (multi-week trend) ──
+app.post('/report/branch-performance', async (req, res) => {
+  const weekCount = Math.min(Math.max(parseInt(req.body.weekCount) || 4, 1), 12);
+
+  try {
+    const p = await getPool();
+
+    // Resolve last completed epoch week
+    const epochResult = await p.request().query(`
+      SELECT
+        CASE WHEN GtEpochWeek = 1 THEN GtEpochYear - 1 ELSE GtEpochYear END AS TargetYear,
+        CASE WHEN GtEpochWeek = 1
+             THEN (SELECT MAX(GtEpochWeek) FROM Calendar WHERE GtEpochYear = (SELECT GtEpochYear - 1 FROM Calendar WHERE Date = CAST(GETDATE() AS DATE)))
+             ELSE GtEpochWeek - 1 END AS TargetWeek
+      FROM Calendar WHERE Date = CAST(GETDATE() AS DATE)
+    `);
+    const { TargetYear, TargetWeek } = epochResult.recordset[0];
+
+    // Resolve N target weeks
+    const weeksResult = await p.request()
+      .input('WeekCount', sql.Int, weekCount)
+      .input('TargetYear', sql.Int, TargetYear)
+      .input('TargetWeek', sql.Int, TargetWeek)
+      .query(`
+        SELECT DISTINCT TOP(@WeekCount) GtEpochYear, GtEpochWeek
+        FROM Calendar
+        WHERE (GtEpochYear < @TargetYear)
+           OR (GtEpochYear = @TargetYear AND GtEpochWeek <= @TargetWeek)
+        ORDER BY GtEpochYear DESC, GtEpochWeek DESC
+      `);
+    const weeks = weeksResult.recordset.map(w => ({ year: w.GtEpochYear, week: w.GtEpochWeek }));
+
+    // Build WHERE clause for the target weeks
+    const weekConditions = weeks.map((w, i) =>
+      `(cal.GtEpochYear = ${parseInt(w.year)} AND cal.GtEpochWeek = ${parseInt(w.week)})`
+    ).join(' OR ');
+
+    // Main query
+    const result = await p.request().query(`
+      SELECT
+          cal.GtEpochYear                            AS EpochYear,
+          cal.GtEpochWeek                            AS EpochWeek,
+          CONVERT(VARCHAR(50), cl.ClientName)         AS ClientName,
+          CONVERT(VARCHAR(50), b.BranchName)          AS BranchName,
+          CONVERT(VARCHAR(50), b.BranchAlias)         AS BranchAlias,
+          CONVERT(VARCHAR(80), ct.ContractTypeName)   AS ContractTypeName,
+          COUNT(*)                                    AS ShiftCount,
+          SUM(
+              CASE
+                  WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
+                  WHEN ct.ContractTypeName = 'Support'        THEN 0.0
+                  WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                  ELSE 1.0
+              END
+          )                                           AS WeightedDays
+      FROM Debrief d
+      JOIN Contractor c    ON c.ContractorId    = d.ContractorId
+      JOIN ContractType ct ON ct.ContractTypeId = d.ContractTypeId
+      JOIN Client cl       ON cl.ClientId       = ct.ClientId
+      JOIN Branch b        ON b.BranchId        = d.BranchId
+      JOIN Calendar cal    ON cal.Date          = CAST(d.Date AS DATE)
+      WHERE d.IsApproved = 1
+        AND (${weekConditions})
+      GROUP BY cal.GtEpochYear, cal.GtEpochWeek,
+               cl.ClientName, b.BranchName, b.BranchAlias, ct.ContractTypeName
+      ORDER BY cal.GtEpochYear, cal.GtEpochWeek,
+               cl.ClientName, b.BranchName, b.BranchAlias, ct.ContractTypeName
+    `);
+
+    res.json({
+      weeks: weeks.reverse(),
+      rows: result.recordset,
+    });
+  } catch (err) {
+    console.error('Branch performance error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Contractor Sync ──
 app.post('/report/contractor-sync', async (req, res) => {
   try {

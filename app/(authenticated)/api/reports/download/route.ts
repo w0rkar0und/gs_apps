@@ -6,6 +6,7 @@ import { generateDepositExcel } from '@/lib/excel-deposit'
 import { generateWorkingDaysExcel } from '@/lib/excel-working-days'
 import { generateWorkingDaysByClientExcel } from '@/lib/excel-working-days-by-client'
 import { generateSettlementExcel } from '@/lib/excel-settlement'
+import { generateBranchPerformanceExcel } from '@/lib/excel-branch-performance'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -72,6 +73,12 @@ export async function POST(request: NextRequest) {
     } else if (reportType === 'settlement') {
       buffer = await generateSettlementExcel(reportData)
       filename = `Settlement_Data_${hrCode}_${date}.xlsx`
+    } else if (reportType === 'branch-performance') {
+      buffer = await generateBranchPerformanceExcel(reportData)
+      const weeks = reportData.weeks
+      const first = weeks?.[0]
+      const last = weeks?.[weeks.length - 1]
+      filename = `Branch_Performance_Wk${first?.week ?? 0}-${last?.week ?? 0}_${last?.year ?? 0}_${date}.xlsx`
     } else {
       return NextResponse.json({ error: 'Unknown report type.' }, { status: 400 })
     }

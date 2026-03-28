@@ -5,17 +5,19 @@ import DepositReport from '@/components/reports/DepositReport'
 import WorkingDaysReport from '@/components/reports/WorkingDaysReport'
 import WorkingDaysByClientReport from '@/components/reports/WorkingDaysByClientReport'
 import SettlementReport from '@/components/reports/SettlementReport'
+import BranchPerformanceReport from '@/components/reports/BranchPerformanceReport'
 
-type ReportType = 'deposit' | 'working-days' | 'working-days-by-client' | 'settlement'
+type ReportType = 'deposit' | 'working-days' | 'working-days-by-client' | 'settlement' | 'branch-performance'
 
 const REPORT_LABELS: Record<ReportType, string> = {
   deposit: 'Deposit Report',
   'working-days': 'Contractor - Working Day Count',
   'working-days-by-client': 'Working Days by Client',
   settlement: 'DA Relations Settlement Data',
+  'branch-performance': 'Branch/Client Performance',
 }
 
-const REPORTS_WITHOUT_HR_CODE: ReportType[] = ['working-days-by-client']
+const REPORTS_WITHOUT_HR_CODE: ReportType[] = ['working-days-by-client', 'branch-performance']
 
 const inputClasses = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white uppercase"
 
@@ -249,6 +251,9 @@ export default function ReportRunner({ allowedReports }: Props) {
       )}
       {reportData && activeReportType === 'settlement' && (
         <SettlementReport data={reportData} />
+      )}
+      {reportData && activeReportType === 'branch-performance' && (
+        <BranchPerformanceReport data={reportData} />
       )}
     </>
   )

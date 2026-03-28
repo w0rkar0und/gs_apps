@@ -33,6 +33,7 @@ const APP_PERMISSIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'working-days', label: 'Contractor - Working Day Count' },
     { key: 'working-days-by-client', label: 'Working Days by Client' },
     { key: 'settlement', label: 'DA Relations Settlement Data' },
+    { key: 'branch-performance', label: 'Branch/Client Performance' },
   ],
 }
 

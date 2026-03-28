@@ -81,6 +81,7 @@ gs_apps/
 │   │           ├── working-days/route.ts        # Proxy → Railway working days report
 │   │           ├── working-days-by-client/route.ts  # Proxy → Railway fleet-wide report
 │   │           ├── settlement/route.ts          # Proxy → Railway settlement report
+│   │           ├── branch-performance/route.ts  # Proxy → Railway multi-week trend report
 │   │           ├── download/route.ts            # ExcelJS generation → .xlsx download
 │   │           └── email/route.ts               # ExcelJS generation → Resend email
 │   └── api/
@@ -108,7 +109,8 @@ gs_apps/
 │       ├── DepositReport.tsx            # Deposit report — 4-section table view
 │       ├── WorkingDaysReport.tsx        # Per-contractor working day count
 │       ├── WorkingDaysByClientReport.tsx # Fleet-wide: filters, chart, grouped table
-│       └── SettlementReport.tsx         # DA Relations settlement — 5 collapsible sections
+│       ├── SettlementReport.tsx         # DA Relations settlement — 5 collapsible sections
+│       └── BranchPerformanceReport.tsx  # Multi-week trend: line chart, pivoted table
 ├── docs/
 │   ├── GREYTHORN_REPORTS_CONTEXT.md     # Full report specs (deposit + working days)
 │   ├── WORKING_DAY_COUNT_BY_CLIENT.md   # Fleet-wide report spec + SQL
@@ -122,6 +124,7 @@ gs_apps/
 │   ├── excel-working-days.ts            # Working day count Excel generator
 │   ├── excel-working-days-by-client.ts  # Fleet-wide report Excel generator
 │   ├── excel-settlement.ts             # Settlement report Excel generator
+│   ├── excel-branch-performance.ts    # Branch performance Excel generator
 │   ├── supabase.ts                      # Supabase client (browser)
 │   ├── supabase-server.ts               # Supabase client (server/RSC)
 │   └── types.ts                         # Shared TypeScript types
@@ -248,7 +251,7 @@ CREATE TABLE user_apps (
 
 **Permissions JSONB** — used by apps that need sub-level access control. For the Reports app:
 ```json
-{"deposit": true, "working-days": true, "working-days-by-client": true}
+{"deposit": true, "working-days": true, "working-days-by-client": true, "branch-performance": true}
 ```
 The `APP_PERMISSIONS` config in `PlatformUserManagement.tsx` defines which apps have sub-permissions and what the keys are.
 
@@ -437,6 +440,7 @@ CREATE TRIGGER on_auth_user_created
   api/reports/working-days           → Working day count proxy
   api/reports/working-days-by-client → Fleet-wide report proxy
   api/reports/settlement             → Settlement report proxy
+  api/reports/branch-performance     → Branch performance trend proxy
   api/reports/download               → Excel download for any report type
   api/reports/email                  → Email report to user's own email
 /api/cron/sync-reminder        → Daily sync reminder email
@@ -512,6 +516,7 @@ A Node.js/Express service deployed on Railway with static outbound IPs, used to 
 | POST | `/report/working-days-by-client` | `{}` | Fleet-wide weighted days by client/branch/contract type |
 | POST | `/report/settlement` | `{ hrCode }` | DA Relations settlement — deposit, vehicles, charges, remittances |
 | POST | `/report/referral-check` | `{ hrCodes, startDates }` | Working day check for 1-4 referrals — approved debriefs, rota projections, first rota date |
+| POST | `/report/branch-performance` | `{ weekCount? }` | Multi-week weighted days trend by client/branch/contract type (default 4 weeks, max 12) |
 | POST | `/report/contractor-sync` | `{}` | All contractors — HrCode, name, active status, last worked date |
 
 ### Request flow
@@ -543,6 +548,7 @@ Reports follow a consistent pattern:
 | `working-days` | Contractor - Working Day Count | Yes | Per-contractor weekly working day count |
 | `working-days-by-client` | Working Days by Client | No | Fleet-wide weighted days with visualisations |
 | `settlement` | DA Relations Settlement Data | Yes | 5-section settlement summary with collapsible sections |
+| `branch-performance` | Branch/Client Performance | No | Multi-week weighted days trend with line chart and pivoted table |
 
 ### Access Control
 
@@ -741,6 +747,7 @@ All 8 build phases complete plus additional reports. Reports app is live at `/re
 - Additional: Working Days by Client report with visualisations (filters + Recharts + grouped table)
 - Additional: DA Relations Settlement Data report — 5 collapsible sections with collapsed header summaries, account status, vehicles since deposit, vehicle charges, remittances
 - Deposit report updated: now uses split query pattern (like Settlement), shows only most recent deposit with instalment payments as separate section, 5 collapsible sections with collapsed header summaries
+- Additional: Branch/Client Performance report — multi-week trend (default 4 weeks, max 12) extending Working Days by Client. Line chart with drill-down (client → branch → contract type), pivoted table with week columns, filters, Excel download + email
 
 ### Build Configuration
 
