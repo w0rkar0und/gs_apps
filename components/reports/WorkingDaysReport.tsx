@@ -1,7 +1,5 @@
 'use client'
 
-import { calcWorkingDays } from '@/lib/working-days'
-
 interface WorkingDayRow {
   HrCode: string
   Name: string
@@ -12,6 +10,7 @@ interface WorkingDayRow {
   Source: string
   ContractType: string
   ShiftCount: number
+  WeightedDays: number
 }
 
 interface Contractor {
@@ -29,7 +28,7 @@ interface WorkingDaysData {
 }
 
 function calculateDays(row: WorkingDayRow): number {
-  return calcWorkingDays(row.ShiftCount, row.ContractType)
+  return Number(row.WeightedDays)
 }
 
 const sectionHeading = "text-sm font-semibold text-white bg-[#2E75B6] px-4 py-2 rounded-t-lg"

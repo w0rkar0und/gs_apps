@@ -571,12 +571,12 @@ Admins bypass both levels.
 ### Contractor - Working Day Count
 - Per-contractor, per-week summary from approved debriefs + current-week rota projections
 - Two separate queries (never UNION ALL with FLOAT)
-- Half-day rule for nursery contracts applied in presentation layer
+- WeightedDays computed in SQL and returned alongside ShiftCount — presentation layer uses SQL value directly
 
 ### Working Days by Client
 - Fleet-wide: no HR code input, scans all approved debriefs
 - Targets the **last completed** Greythorn epoch week (not current)
-- Three weight tiers in SQL: OSM/Support = 0.0, Sameday_6* = 0.5, else = 1.0
+- Weight tiers in SQL: OSM/Support = 0.0, Sameday_6* = 0.5, Hourly contracts = 0.5 or 1.0 based on hours (< 4.5h = 0.5, >= 4.5h = 1.0), else = 1.0
 - Includes `BranchAlias` for display and filtering
 - **Visualisations:** filter bar (Client, Branch, Contract Type) + Recharts bar chart that drills down + grouped data table
 
@@ -622,6 +622,7 @@ Admins bypass both levels.
 - **Column is `VehicleSupplierName`** — not `Name`
 - **`VehicleSupplierId = 2`** = Greythorn
 - **`ContractorAdditionalPayReasonId = 7`** = Deposit Return
+- **Hourly contract types** — `ContractType.Hourly = 1` flags hourly contracts. Hours = `ROUND(DATEDIFF(MINUTE, d.StartTime, d.EndTime) / 60.0, 0)`. If < 4.5h = 0.5 weighted day, >= 4.5h = 1.0 weighted day. NULL start/end times default to 1.0
 - **BranchId from Debrief** — join `Branch` via `d.BranchId`, not `ContractType.BranchId`
 - **`VehicleOwnershipTypeId`** lives on `Vehicle` table, not `ContractorVehicle`
 - **DA Supplied vehicles** — `VehicleOwnershipType.IsOwnedByContractor = 1` means DA/contractor supplied their own vehicle; `!= 1` means Greythorn/company vehicle
@@ -657,7 +658,7 @@ Queries Greythorn → upserts to Supabase `contractors` table → writes to `syn
 For a given HR code (or list), checks working days against Greythorn since the referral
 start date, compares against 30-day threshold, writes results to Supabase.
 
-Query version: `v1.0`. Half-day rule applies to: `NL 1%`, `NL 2%`, `NL 3%`, `Nursery 1%`, `Nursery 2%`, `Nursery L1%`, `Nursery L2%`, `Nursery L3%`.
+Query version: `v1.0`. Weighted day rules: OSM/Support = 0.0, Sameday_6* = 0.5, Hourly contracts = 0.5 or 1.0 based on debrief hours (< 4.5h = half day), all others = 1.0. Computed in SQL, not presentation layer.
 
 ---
 
@@ -790,7 +791,8 @@ Check which migrations have been applied to Supabase. The following exist in the
 15. **No temporary files** — all processing stays in memory across the entire chain (Vercel, Railway, Supabase); Excel buffers, JSON payloads all in-memory
 16. **`ContractorVehicleDeposit` split query** — Part 1A isolates ID, Part 1B fetches details, to avoid SQL Server bit+JOIN silent failure
 17. **Vehicle ownership** — `VehicleOwnershipType` joined via `Vehicle.VehicleOwnershipTypeId`; `IsOwnedByContractor = 1` = DA supplied (contractor's own); `!= 1` = Greythorn/company vehicle
-18. **Run Check from UI** — Railway proxy runs SQL queries, Vercel route handles business logic (half-day calc, threshold, discrepancy), Supabase writes, and Resend email. Max 4 HR codes per run to keep response times under 10s. `selectAllVisible` caps at 4. Python script `referral_check.py` still used for `--all` bulk runs
+18. **Run Check from UI** — Railway proxy runs SQL queries (including weighted day calculation for hourly contracts), Vercel route handles threshold check, discrepancy detection, Supabase writes, and Resend email. Max 4 HR codes per run to keep response times under 10s. `selectAllVisible` caps at 4. Python script `referral_check.py` still used for `--all` bulk runs
+19. **Weighted days in SQL** — all weighted day calculations (half-day rules, hourly contracts, zero-weight types) are computed in the Railway proxy SQL, not in the presentation layer. The TypeScript `calcWorkingDays` function in `lib/working-days.ts` is no longer used
 
 ---
 

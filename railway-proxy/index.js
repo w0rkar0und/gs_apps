@@ -271,7 +271,19 @@ app.post('/report/working-days', async (req, res) => {
           MAX(CONVERT(VARCHAR, d.Date, 103)) AS WeekEnd,
           'Approved' AS Source,
           CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
-          COUNT(*) AS ShiftCount
+          COUNT(*) AS ShiftCount,
+          SUM(
+              CASE
+                  WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
+                  WHEN ct.ContractTypeName = 'Support'        THEN 0.0
+                  WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                  WHEN ct.Hourly = 1 THEN
+                      CASE WHEN d.StartTime IS NULL OR d.EndTime IS NULL THEN 1.0
+                           WHEN ROUND(CAST(DATEDIFF(MINUTE, d.StartTime, d.EndTime) AS FLOAT) / 60.0, 0) < 4.5 THEN 0.5
+                           ELSE 1.0 END
+                  ELSE 1.0
+              END
+          ) AS WeightedDays
         FROM Debrief d
         JOIN Contractor c ON c.ContractorId = d.ContractorId
         JOIN [User] u ON u.UserId = c.UserId
@@ -287,7 +299,7 @@ app.post('/report/working-days', async (req, res) => {
         ORDER BY cal.GtEpochYear DESC, cal.GtEpochWeek DESC
       `);
 
-    // Part 2: Current week rota projection
+    // Part 2: Current week rota projection (no hours data — count as full days, with Sameday_6 as 0.5)
     const rotaResult = await p.request()
       .input('HrCode', sql.VarChar, hrCode)
       .input('CurrentYear', sql.Int, currentYear)
@@ -302,12 +314,20 @@ app.post('/report/working-days', async (req, res) => {
           MAX(CONVERT(VARCHAR, r.Date, 103)) AS WeekEnd,
           'Rota (Projected)' AS Source,
           CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
-          COUNT(*) AS ShiftCount
+          COUNT(*) AS ShiftCount,
+          SUM(
+              CASE
+                  WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
+                  WHEN ct.ContractTypeName = 'Support'        THEN 0.0
+                  WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                  ELSE 1.0
+              END
+          ) AS WeightedDays
         FROM ContractorRota r
         JOIN Contractor c ON c.ContractorId = r.ContractorId
         JOIN [User] u ON u.UserId = c.UserId
         JOIN UserProfile up ON up.UserId = u.UserId
-        JOIN Calendar cal ON cal.Date = CAST(r.Date AS DATE)
+        Join Calendar cal ON cal.Date = CAST(r.Date AS DATE)
         JOIN RotaActivity ra ON ra.RotaActivityId = r.RotaActivityId
         JOIN ContractType ct ON ct.ContractTypeId = r.ContractTypeId
         WHERE c.HrCode = @HrCode
@@ -365,17 +385,25 @@ app.post('/report/working-days-by-client', async (req, res) => {
           COUNT(*)                                  AS ShiftCount,
           SUM(
               CASE
-                  WHEN ct.ContractTypeName = 'OSM'          THEN 0.0
-                  WHEN ct.ContractTypeName = 'Support'       THEN 0.0
-                  WHEN ct.ContractTypeName LIKE 'Sameday_6%' THEN 0.5
+                  WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
+                  WHEN ct.ContractTypeName = 'Support'        THEN 0.0
+                  WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                  WHEN ct.Hourly = 1 THEN
+                      CASE WHEN d.StartTime IS NULL OR d.EndTime IS NULL THEN 1.0
+                           WHEN ROUND(CAST(DATEDIFF(MINUTE, d.StartTime, d.EndTime) AS FLOAT) / 60.0, 0) < 4.5 THEN 0.5
+                           ELSE 1.0 END
                   ELSE 1.0
               END
           )                                         AS WeightedDays,
           SUM(SUM(
               CASE
-                  WHEN ct.ContractTypeName = 'OSM'          THEN 0.0
-                  WHEN ct.ContractTypeName = 'Support'       THEN 0.0
-                  WHEN ct.ContractTypeName LIKE 'Sameday_6%' THEN 0.5
+                  WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
+                  WHEN ct.ContractTypeName = 'Support'        THEN 0.0
+                  WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                  WHEN ct.Hourly = 1 THEN
+                      CASE WHEN d.StartTime IS NULL OR d.EndTime IS NULL THEN 1.0
+                           WHEN ROUND(CAST(DATEDIFF(MINUTE, d.StartTime, d.EndTime) AS FLOAT) / 60.0, 0) < 4.5 THEN 0.5
+                           ELSE 1.0 END
                   ELSE 1.0
               END
           )) OVER (PARTITION BY cl.ClientName, b.BranchName, b.BranchAlias) AS SiteTotal
@@ -671,7 +699,19 @@ app.post('/report/referral-check', async (req, res) => {
                 MAX(CONVERT(VARCHAR, d.Date, 103)) AS WeekEnd,
                 'Approved' AS Source,
                 CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
-                COUNT(*) AS ShiftCount
+                COUNT(*) AS ShiftCount,
+                SUM(
+                    CASE
+                        WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
+                        WHEN ct.ContractTypeName = 'Support'        THEN 0.0
+                        WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                        WHEN ct.Hourly = 1 THEN
+                            CASE WHEN d.StartTime IS NULL OR d.EndTime IS NULL THEN 1.0
+                                 WHEN ROUND(CAST(DATEDIFF(MINUTE, d.StartTime, d.EndTime) AS FLOAT) / 60.0, 0) < 4.5 THEN 0.5
+                                 ELSE 1.0 END
+                        ELSE 1.0
+                    END
+                ) AS WeightedDays
               FROM Debrief d
               JOIN Contractor c ON c.ContractorId = d.ContractorId
               JOIN [User] u ON u.UserId = c.UserId
@@ -685,7 +725,7 @@ app.post('/report/referral-check', async (req, res) => {
                        cal.GtEpochYear, cal.GtEpochWeek, ct.ContractTypeName
               ORDER BY cal.GtEpochYear, cal.GtEpochWeek
             `),
-          // Part 2: Current week rota projection
+          // Part 2: Current week rota projection (no hours data — count as full days, with Sameday_6 as 0.5)
           p.request()
             .input('HrCode', sql.VarChar, hrCode)
             .input('CurrentYear', sql.Int, currentYear)
@@ -701,7 +741,15 @@ app.post('/report/referral-check', async (req, res) => {
                 MAX(CONVERT(VARCHAR, r.Date, 103)) AS WeekEnd,
                 'Rota (Projected)' AS Source,
                 CONVERT(VARCHAR(50), ct.ContractTypeName) AS ContractType,
-                COUNT(*) AS ShiftCount
+                COUNT(*) AS ShiftCount,
+                SUM(
+                    CASE
+                        WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
+                        WHEN ct.ContractTypeName = 'Support'        THEN 0.0
+                        WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                        ELSE 1.0
+                    END
+                ) AS WeightedDays
               FROM ContractorRota r
               JOIN Contractor c ON c.ContractorId = r.ContractorId
               JOIN [User] u ON u.UserId = c.UserId
@@ -810,6 +858,10 @@ app.post('/report/branch-performance', async (req, res) => {
                   WHEN ct.ContractTypeName = 'OSM'           THEN 0.0
                   WHEN ct.ContractTypeName = 'Support'        THEN 0.0
                   WHEN ct.ContractTypeName LIKE 'Sameday_6%'  THEN 0.5
+                  WHEN ct.Hourly = 1 THEN
+                      CASE WHEN d.StartTime IS NULL OR d.EndTime IS NULL THEN 1.0
+                           WHEN ROUND(CAST(DATEDIFF(MINUTE, d.StartTime, d.EndTime) AS FLOAT) / 60.0, 0) < 4.5 THEN 0.5
+                           ELSE 1.0 END
                   ELSE 1.0
               END
           )                                           AS WeightedDays

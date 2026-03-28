@@ -3,7 +3,6 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { Resend } from 'resend'
-import { calcWorkingDays } from '@/lib/working-days'
 import type { CheckResult } from '@/lib/types'
 
 const QUERY_VERSION = 'v1.0'
@@ -19,21 +18,20 @@ interface RawRow {
   Source: string
   ContractType: string
   ShiftCount: number
+  WeightedDays: number
 }
 
 function processRows(rows: RawRow[]) {
   return rows.map(row => {
-    const contractType = (row.ContractType || '').trim()
-    const shiftCount = Number(row.ShiftCount)
     return {
       source: (row.Source || '').trim(),
       year: Number(row.Year),
       week: Number(row.Week),
       week_start: row.WeekStart,
       week_end: row.WeekEnd,
-      contract_type: contractType,
-      shift_count: shiftCount,
-      working_days: calcWorkingDays(shiftCount, contractType),
+      contract_type: (row.ContractType || '').trim(),
+      shift_count: Number(row.ShiftCount),
+      working_days: Number(row.WeightedDays),
     }
   })
 }

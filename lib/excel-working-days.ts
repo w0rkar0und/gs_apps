@@ -3,12 +3,10 @@ import {
   titleStyle, headerStyle, sectionStyle,
   dataStyleEven, dataStyleOdd, totalStyle, nilStyle, projectedStyle,
 } from './excel-styles'
-import { isHalfDay } from './working-days'
-
 interface Row {
   HrCode: string; Name: string; Year: number; Week: number
   WeekStart: string; WeekEnd: string; Source: string
-  ContractType: string; ShiftCount: number
+  ContractType: string; ShiftCount: number; WeightedDays: number
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,8 +29,8 @@ export async function generateWorkingDaysExcel(data: any): Promise<Buffer> {
 
   // Merge and calculate
   const allRows = [
-    ...approved.map((r: Row) => ({ ...r, DayCount: r.ShiftCount * (isHalfDay(r.ContractType) ? 0.5 : 1.0) })),
-    ...projected.map((r: Row) => ({ ...r, DayCount: r.ShiftCount * (isHalfDay(r.ContractType) ? 0.5 : 1.0) })),
+    ...approved.map((r: Row) => ({ ...r, DayCount: Number(r.WeightedDays) })),
+    ...projected.map((r: Row) => ({ ...r, DayCount: Number(r.WeightedDays) })),
   ]
 
   // Weekly summary
