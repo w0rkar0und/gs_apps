@@ -361,6 +361,7 @@ ALTER TABLE contractors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE referral_checks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_apps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sync_log ENABLE ROW LEVEL SECURITY;
 
 -- profiles: users read/update their own row only
 CREATE POLICY "profiles_select_own" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -764,6 +765,7 @@ Check which migrations have been applied to Supabase. The following exist in the
 - `002_user_apps.sql` — multi-app user access table
 - `003_profile_fields.sql` — add full_name, email, is_active to profiles
 - `004_user_apps_permissions.sql` — add permissions JSONB to user_apps
+- `005_sync_log_rls.sql` — enable RLS on sync_log
 
 ### Users
 
