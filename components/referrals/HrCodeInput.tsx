@@ -78,7 +78,7 @@ export default function HrCodeInput({ startDate, onContractorFound, onError }: H
         const lastWorked = new Date(data.last_worked_date)
         const start = new Date(startDate)
         const diffDays = Math.floor((start.getTime() - lastWorked.getTime()) / (1000 * 60 * 60 * 24))
-        if (diffDays < 180) {
+        if (diffDays >= 0 && diffDays < 180) {
           onContractorFound(null)
           onError(
             "This contractor's last recorded working day falls within six months of the submitted start date. " +
