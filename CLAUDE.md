@@ -638,7 +638,7 @@ Admins bypass both levels.
 | Code | Trigger | User-Facing Message |
 |---|---|---|
 | `REF-001` | Duplicate HR code | "This HR code has already been registered by another user. If you believe this is an error, please contact SLT quoting reference REF-001." |
-| `REF-002` | Rehire within 6 months | "This contractor's last recorded working day falls within six months of the submitted start date. This referral cannot be accepted. If you believe this is an error, please contact SLT quoting reference REF-002." |
+| `REF-002` | Rehire within 6 months | "This contractor's last recorded working day falls within six months of the submitted start date. This referral cannot be accepted. If you believe this is an error, please contact SLT quoting reference REF-002." Only triggers when `last_worked_date` is **before** the start date (i.e. `diffDays >= 0`). If `last_worked_date` is on or after the start date the contractor is currently working — not a rehire. |
 | `REF-003` | Start date >7 days in past | "Referrals cannot be backdated beyond 7 days. If you believe this is an error, please contact SLT quoting reference REF-003." |
 
 ### HR Code Validation Flow
@@ -647,7 +647,7 @@ On the `HrCodeInput` component (debounced 400ms):
 1. Query `contractors` table by HR code
 2. If not found → inline error
 3. If `is_active = false` → inline error
-4. If active → auto-populate name, run REF-001 (duplicate) and REF-002 (rehire 180-day) checks
+4. If active → auto-populate name, run REF-001 (duplicate) and REF-002 (rehire 180-day) checks. REF-002 only fires when `last_worked_date` is before the start date (`diffDays >= 0 && diffDays < 180`); negative diff means the contractor is currently working, not a rehire
 5. On submit → Supabase insert → catch `23505` → REF-001
 
 ### Python Script: `contractor_sync.py`
