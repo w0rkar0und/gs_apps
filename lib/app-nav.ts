@@ -11,6 +11,9 @@ export const APP_NAV: Record<string, NavLink[]> = {
   reports: [
     { href: '/reports', label: 'Run Report', adminOnly: false },
   ],
+  scorecards: [
+    { href: '/scorecards', label: 'Dashboard', adminOnly: false },
+  ],
   referrals: [
     { href: '/referrals', label: 'My Referrals', adminOnly: false },
     { href: '/referrals/submit', label: 'New Referral', adminOnly: false },

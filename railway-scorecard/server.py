@@ -13,7 +13,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Header
+import httpx
+from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.responses import JSONResponse
 
 # Add module paths so scorecard_agent and onedrive_client are importable
@@ -53,6 +54,56 @@ def _check_auth(secret: str | None):
     """Validate the X-Scorecard-Secret header if SCORECARD_SECRET is set."""
     if SCORECARD_SECRET and secret != SCORECARD_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorised")
+
+
+# ── Supabase persistence ────────────────────────────────────────────────────
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+
+
+def _supabase_insert(row: dict) -> str | None:
+    """Insert a row into scorecard_runs. Returns the row id or None on failure."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        log.warning("Supabase not configured — skipping persistence")
+        return None
+    try:
+        resp = httpx.post(
+            f"{SUPABASE_URL}/rest/v1/scorecard_runs",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            json=row,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json()[0]["id"]
+    except Exception as e:
+        log.error("Supabase insert failed: %s", e)
+        return None
+
+
+def _supabase_update(row_id: str, updates: dict):
+    """Update a scorecard_runs row by id."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not row_id:
+        return
+    try:
+        resp = httpx.patch(
+            f"{SUPABASE_URL}/rest/v1/scorecard_runs?id=eq.{row_id}",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=updates,
+            timeout=10,
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        log.error("Supabase update failed: %s", e)
 
 
 # ── SharePoint download + cleanup ───────────────────────────────────────────
@@ -117,15 +168,23 @@ def cleanup_sharepoint_inbox(pdf_names: list[str]):
 
 # ── Pipeline runner ──────────────────────────────────────────────────────────
 
-def _run_pipeline():
+def _run_pipeline(triggered_by: str = "scheduled"):
     """Full pipeline: download → process → cleanup. Runs in background thread."""
     global _running, _last_run
 
+    started_at = datetime.now().isoformat()
     _last_run["status"] = "running"
-    _last_run["started_at"] = datetime.now().isoformat()
+    _last_run["started_at"] = started_at
     _last_run["completed_at"] = None
     _last_run["result"] = None
     _last_run["error"] = None
+
+    # Persist start to Supabase
+    row_id = _supabase_insert({
+        "status": "running",
+        "triggered_by": triggered_by,
+        "started_at": started_at,
+    })
 
     pdfs = None
 
@@ -138,6 +197,11 @@ def _run_pipeline():
             _last_run["status"] = "no_files"
             _last_run["completed_at"] = datetime.now().isoformat()
             _last_run["result"] = {"status": "no_files", "files_processed": 0}
+            _supabase_update(row_id, {
+                "status": "no_files",
+                "completed_at": _last_run["completed_at"],
+                "files_processed": 0,
+            })
             return
 
         # Step 2: Run the processing pipeline
@@ -152,10 +216,25 @@ def _run_pipeline():
         _last_run["status"] = result.get("status", "completed") if result else "completed"
         _last_run["result"] = _serialise_result(result)
 
+        _supabase_update(row_id, {
+            "status": _last_run["status"],
+            "completed_at": datetime.now().isoformat(),
+            "files_processed": result.get("files_processed") if result else None,
+            "records_added": result.get("records_added") if result else None,
+            "week": result.get("week") if result else None,
+            "email_sent": result.get("email_sent") if result else None,
+            "result": _serialise_result(result),
+        })
+
     except Exception as e:
         log.error("Pipeline failed: %s", e, exc_info=True)
         _last_run["status"] = "error"
         _last_run["error"] = str(e)
+        _supabase_update(row_id, {
+            "status": "error",
+            "completed_at": datetime.now().isoformat(),
+            "error": str(e),
+        })
 
     finally:
         _last_run["completed_at"] = datetime.now().isoformat()
@@ -192,8 +271,14 @@ def status(x_scorecard_secret: str | None = Header(None)):
 
 
 @app.post("/run")
-def run(x_scorecard_secret: str | None = Header(None)):
+def run(
+    x_scorecard_secret: str | None = Header(None),
+    triggered_by: str = Query(default="scheduled"),
+):
     _check_auth(x_scorecard_secret)
+
+    if triggered_by not in ("scheduled", "manual", "cron"):
+        triggered_by = "scheduled"
 
     global _running
     with _lock:
@@ -201,7 +286,7 @@ def run(x_scorecard_secret: str | None = Header(None)):
             raise HTTPException(status_code=409, detail="Pipeline already running")
         _running = True
 
-    thread = threading.Thread(target=_run_pipeline, daemon=True)
+    thread = threading.Thread(target=_run_pipeline, args=(triggered_by,), daemon=True)
     thread.start()
 
     return {"status": "started", "started_at": datetime.now().isoformat()}

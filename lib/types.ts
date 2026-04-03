@@ -72,6 +72,20 @@ export interface CheckResult {
   reason?: string
 }
 
+export interface ScorecardRun {
+  id: string
+  status: 'running' | 'success' | 'no_files' | 'error'
+  triggered_by: 'scheduled' | 'manual' | 'cron'
+  started_at: string
+  completed_at: string | null
+  files_processed: number | null
+  records_added: number | null
+  week: number | null
+  email_sent: boolean | null
+  result: Record<string, unknown> | null
+  error: string | null
+}
+
 export interface UserApp {
   id: string
   user_id: string

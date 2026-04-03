@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Trigger the scorecard pipeline on Railway
-    const response = await fetch(`${scorecardUrl}/run`, {
+    const response = await fetch(`${scorecardUrl}/run?triggered_by=cron`, {
       method: 'POST',
       headers: {
         ...(scorecardSecret ? { 'X-Scorecard-Secret': scorecardSecret } : {}),

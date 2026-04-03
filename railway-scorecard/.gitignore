@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 *.log
 .last_run_status.json
+droplet_env_file.txt
