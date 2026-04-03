@@ -106,6 +106,42 @@ def _supabase_update(row_id: str, updates: dict):
         log.error("Supabase update failed: %s", e)
 
 
+def _supabase_save_results(run_id: str, predictions_data: list):
+    """Save prediction results to scorecard_results table."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not run_id:
+        return
+    for entry in predictions_data:
+        try:
+            resp = httpx.post(
+                f"{SUPABASE_URL}/rest/v1/scorecard_results",
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "run_id": run_id,
+                    "calibration_offset": entry["calibration_offset"],
+                    "week": entry["week"],
+                    "prediction_count": entry["prediction_count"],
+                    "mean_score": entry.get("mean_score"),
+                    "median_score": entry.get("median_score"),
+                    "min_score": entry.get("min_score"),
+                    "max_score": entry.get("max_score"),
+                    "status_counts": entry.get("status_counts"),
+                    "predictions": entry["predictions"],
+                    "site_summary": entry.get("site_summary"),
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            log.info("Saved results for offset %+.1f (%d predictions)",
+                     entry["calibration_offset"], entry["prediction_count"])
+        except Exception as e:
+            log.error("Supabase results save failed for offset %+.1f: %s",
+                      entry["calibration_offset"], e)
+
+
 # ── SharePoint download + cleanup ───────────────────────────────────────────
 
 DATA_DIR = Path("/app/data")
@@ -225,6 +261,11 @@ def _run_pipeline(triggered_by: str = "scheduled"):
             "email_sent": result.get("email_sent") if result else None,
             "result": _serialise_result(result),
         })
+
+        # Save prediction results
+        predictions_data = result.get("predictions_data", []) if result else []
+        if predictions_data and row_id:
+            _supabase_save_results(row_id, predictions_data)
 
     except Exception as e:
         log.error("Pipeline failed: %s", e, exc_info=True)

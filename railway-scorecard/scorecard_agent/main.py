@@ -366,6 +366,70 @@ def process_inbox(
             log.info("[6/7] Skipping email (no model output)")
 
         # =====================================================================
+        # STEP 6b: Capture predictions data before archiving deletes files
+        # =====================================================================
+        predictions_data = []
+        if model_output_files:
+            for output_file, offset in zip(model_output_files, offsets):
+                if output_file and output_file.exists():
+                    try:
+                        pred_df = pd.read_excel(output_file, sheet_name="Predictions Only")
+                        predictions = []
+                        for _, row in pred_df.iterrows():
+                            score_col = "Predicted Score" if "Predicted Score" in pred_df.columns else "NO_DEX_Calibrated_Score"
+                            status_col = "Predicted Status" if "Predicted Status" in pred_df.columns else "NO_DEX_Status"
+                            predictions.append({
+                                "site": str(row.get("Site", "")),
+                                "transporter_id": str(row.get("Transporter ID", "")),
+                                "week": int(row.get("Week", 0)),
+                                "predicted_score": round(float(row[score_col]), 2) if pd.notna(row.get(score_col)) else None,
+                                "predicted_status": str(row.get(status_col, "")),
+                            })
+
+                        scores = [p["predicted_score"] for p in predictions if p["predicted_score"] is not None]
+                        status_list = [p["predicted_status"] for p in predictions if p["predicted_status"]]
+                        status_counts = {}
+                        for s in status_list:
+                            status_counts[s] = status_counts.get(s, 0) + 1
+
+                        # Site summary
+                        site_summary = []
+                        try:
+                            summary_df = pd.read_excel(output_file, sheet_name="Summary by Site")
+                            for _, srow in summary_df.iterrows():
+                                site_summary.append({
+                                    "site": str(srow.get("Site", "")),
+                                    "records": int(srow.get("Records", 0)),
+                                    "mean_score": round(float(srow.get("Mean Score", 0)), 2),
+                                    "median_score": round(float(srow.get("Median Score", 0)), 2),
+                                    "poor": int(srow.get("POOR", 0)),
+                                    "fair": int(srow.get("FAIR", 0)),
+                                    "great": int(srow.get("GREAT", 0)),
+                                    "fantastic": int(srow.get("FANTASTIC", 0)),
+                                    "fantastic_plus": int(srow.get("FANTASTIC_PLUS", 0)),
+                                })
+                        except Exception:
+                            pass
+
+                        predictions_data.append({
+                            "calibration_offset": offset,
+                            "week": week_number,
+                            "prediction_count": len(predictions),
+                            "mean_score": round(sum(scores) / len(scores), 2) if scores else None,
+                            "median_score": round(sorted(scores)[len(scores) // 2], 2) if scores else None,
+                            "min_score": round(min(scores), 2) if scores else None,
+                            "max_score": round(max(scores), 2) if scores else None,
+                            "status_counts": status_counts,
+                            "predictions": predictions,
+                            "site_summary": site_summary,
+                        })
+                        log.info(f"  Captured {len(predictions)} predictions for offset {offset:+.1f}")
+                    except Exception as e:
+                        log.error(f"  Failed to capture predictions for offset {offset:+.1f}: {e}")
+
+        result["predictions_data"] = predictions_data
+
+        # =====================================================================
         # STEP 7: Archive files to SharePoint
         # =====================================================================
         log.info("[7/7] Archiving to SharePoint...")

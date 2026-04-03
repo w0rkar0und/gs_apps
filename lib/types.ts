@@ -86,6 +86,42 @@ export interface ScorecardRun {
   error: string | null
 }
 
+export interface ScorecardPrediction {
+  site: string
+  transporter_id: string
+  week: number
+  predicted_score: number | null
+  predicted_status: string
+}
+
+export interface ScorecardSiteSummary {
+  site: string
+  records: number
+  mean_score: number
+  median_score: number
+  poor: number
+  fair: number
+  great: number
+  fantastic: number
+  fantastic_plus: number
+}
+
+export interface ScorecardResult {
+  id: string
+  run_id: string
+  calibration_offset: number
+  week: number
+  prediction_count: number
+  mean_score: number | null
+  median_score: number | null
+  min_score: number | null
+  max_score: number | null
+  status_counts: Record<string, number> | null
+  predictions: ScorecardPrediction[]
+  site_summary: ScorecardSiteSummary[] | null
+  created_at: string
+}
+
 export interface UserApp {
   id: string
   user_id: string
