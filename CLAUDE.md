@@ -19,6 +19,7 @@ Platform admins (`profiles.is_admin = true`) can access all apps and manage user
 |---|---|---|---|
 | Referrals | `referrals` | Live | Contractor referral registration and verification |
 | Reports | `reports` | Live | Self-service Greythorn SQL Server reports with visualisations |
+| Scorecards | `scorecards` | Live | Courier scorecard predictions — run pipeline, view results |
 
 ---
 
@@ -32,7 +33,8 @@ Platform admins (`profiles.is_admin = true`) can access all apps and manage user
 | Sync/Check Scripts | Python 3.9+ | Run locally or via self-hosted GitHub Actions runner |
 | Greythorn DB | Azure SQL Server | Accessed via Railway proxy (static IP) |
 | SQL Proxy | Railway (Pro plan) | Node.js/Express — static outbound IP for SQL Server whitelist |
-| Cron | Vercel cron | Daily sync reminder, missed sync check, referral digest |
+| Scorecard Service | Railway (Pro plan) | Python/FastAPI — courier scorecard processing pipeline |
+| Cron | Vercel cron | Daily sync reminder, missed sync check, referral digest, scorecard runs |
 | Email notifications | Resend | Verified sender domain: greythornservices.uk |
 | Charts | Recharts | Used in Reports app for data visualisation |
 | Excel generation | ExcelJS | House-style .xlsx reports |
@@ -68,6 +70,8 @@ gs_apps/
 │   │   │       │   └── ChecksPanel.tsx
 │   │   ├── reports/                     # ── Reports app ──
 │   │   │   └── page.tsx                 # Report runner (server component, checks permissions)
+│   │   ├── scorecards/                  # ── Scorecards app ──
+│   │   │   └── page.tsx                 # Dashboard — trigger runs, view history + results
 │   │   └── api/
 │   │       ├── platform/admin/
 │   │       │   ├── create-user/route.ts # Platform user creation (service role)
@@ -76,19 +80,25 @@ gs_apps/
 │   │       │   ├── run-checks/route.ts      # Run Check from UI (admin, max 4)
 │   │       │   ├── run-sync/route.ts        # Contractor sync from UI (admin)
 │   │       │   └── update-referral/route.ts
-│   │       └── reports/
-│   │           ├── deposit/route.ts             # Proxy → Railway deposit report
-│   │           ├── working-days/route.ts        # Proxy → Railway working days report
-│   │           ├── working-days-by-client/route.ts  # Proxy → Railway fleet-wide report
-│   │           ├── settlement/route.ts          # Proxy → Railway settlement report
-│   │           ├── branch-performance/route.ts  # Proxy → Railway multi-week trend report
-│   │           ├── download/route.ts            # ExcelJS generation → .xlsx download
-│   │           └── email/route.ts               # ExcelJS generation → Resend email
+│   │       ├── reports/
+│   │       │   ├── deposit/route.ts             # Proxy → Railway deposit report
+│   │       │   ├── working-days/route.ts        # Proxy → Railway working days report
+│   │       │   ├── working-days-by-client/route.ts  # Proxy → Railway fleet-wide report
+│   │       │   ├── settlement/route.ts          # Proxy → Railway settlement report
+│   │       │   ├── branch-performance/route.ts  # Proxy → Railway multi-week trend report
+│   │       │   ├── download/route.ts            # ExcelJS generation → .xlsx download
+│   │       │   └── email/route.ts               # ExcelJS generation → Resend email
+│   │       └── scorecards/
+│   │           ├── run/route.ts                 # Trigger pipeline (admin, POST)
+│   │           ├── status/route.ts              # Live pipeline status (admin, GET)
+│   │           ├── history/route.ts             # Run history from Supabase (admin, GET)
+│   │           └── results/route.ts             # Prediction results for a run (admin, GET)
 │   └── api/
 │       └── cron/                        # Vercel cron endpoints (platform-level)
 │           ├── sync-reminder/route.ts
 │           ├── check-sync/route.ts
-│           └── referral-digest/route.ts
+│           ├── referral-digest/route.ts
+│           └── scorecard-run/route.ts       # Trigger scorecard pipeline (Thu/Fri cron)
 ├── components/
 │   ├── AuthNavbar.tsx                   # Platform — server component, fetches profile
 │   ├── Navbar.tsx                       # Platform — multi-app aware, hamburger menu on mobile
@@ -104,13 +114,15 @@ gs_apps/
 │   │   ├── SortableHeader.tsx
 │   │   ├── SuccessToast.tsx              # Auto-dismissing success banner
 │   │   └── SyncStatusBanner.tsx
-│   └── reports/                         # ── Reports app components ──
-│       ├── ReportRunner.tsx             # Report selector, download/email actions
-│       ├── DepositReport.tsx            # Deposit report — 4-section table view
-│       ├── WorkingDaysReport.tsx        # Per-contractor working day count
-│       ├── WorkingDaysByClientReport.tsx # Fleet-wide: filters, chart, grouped table
-│       ├── SettlementReport.tsx         # DA Relations settlement — 5 collapsible sections
-│       └── BranchPerformanceReport.tsx  # Multi-week trend: line chart, pivoted table
+│   ├── reports/                         # ── Reports app components ──
+│   │   ├── ReportRunner.tsx             # Report selector, download/email actions
+│   │   ├── DepositReport.tsx            # Deposit report — 4-section table view
+│   │   ├── WorkingDaysReport.tsx        # Per-contractor working day count
+│   │   ├── WorkingDaysByClientReport.tsx # Fleet-wide: filters, chart, grouped table
+│   │   ├── SettlementReport.tsx         # DA Relations settlement — 5 collapsible sections
+│   │   └── BranchPerformanceReport.tsx  # Multi-week trend: line chart, pivoted table
+│   └── scorecards/                      # ── Scorecards app components ──
+│       └── ScorecardDashboard.tsx       # Run trigger, history table, expandable results
 ├── docs/
 │   ├── GREYTHORN_REPORTS_CONTEXT.md     # Full report specs (deposit + working days)
 │   ├── WORKING_DAY_COUNT_BY_CLIENT.md   # Fleet-wide report spec + SQL
@@ -132,6 +144,20 @@ gs_apps/
 │   ├── index.js                         # Express server — report query endpoints
 │   ├── package.json
 │   └── .gitignore
+├── railway-scorecard/                   # ── Railway scorecard service ──
+│   ├── Dockerfile                       # Python 3.12-slim, uvicorn on port 3000
+│   ├── requirements.txt                 # Pinned versions
+│   ├── server.py                        # FastAPI — /health, /status, /run + Supabase persistence
+│   ├── scorecard_agent/
+│   │   ├── config.py                    # Docker paths, Graph API settings, XGBoost config
+│   │   ├── main.py                      # 7-step pipeline, captures predictions data
+│   │   ├── extract_pdf.py               # PDF → pandas (pdfplumber)
+│   │   ├── transform.py                 # Raw → master format
+│   │   ├── run_model.py                 # XGBoost scoring, 3 calibration offsets
+│   │   └── email_report.py              # Resend email with Excel attachments
+│   ├── onedrive_client/
+│   │   └── onedrive_client.py           # Microsoft Graph API client for SharePoint
+│   └── .gitignore
 ├── scripts/
 │   ├── contractor_sync.py               # Greythorn → Supabase contractor sync
 │   ├── referral_check.py                # Working day verification
@@ -141,7 +167,10 @@ gs_apps/
 │       ├── 001_initial_schema.sql       # Core tables, RLS, triggers
 │       ├── 002_user_apps.sql            # Multi-app user access table
 │       ├── 003_profile_fields.sql       # Add full_name, email, is_active to profiles
-│       └── 004_user_apps_permissions.sql # Add permissions JSONB to user_apps
+│       ├── 004_user_apps_permissions.sql # Add permissions JSONB to user_apps
+│       ├── 005_sync_log_rls.sql         # Enable RLS on sync_log
+│       ├── 006_scorecard_runs.sql       # Scorecard run history table
+│       └── 007_scorecard_results.sql    # Scorecard prediction results table
 ├── seed_data/                           # Historical data imports
 ├── vercel.json                          # Vercel cron schedule
 ├── next.config.ts                       # Redirects for old URLs
@@ -181,7 +210,7 @@ gs_apps/
 3. **Update middleware matcher** — add the base path to `middleware.ts`:
    ```typescript
    export const config = {
-     matcher: ['/apps/:path*', '/referrals/:path*', '/reports/:path*', '/new-app/:path*'],
+     matcher: ['/apps/:path*', '/referrals/:path*', '/reports/:path*', '/scorecards/:path*', '/new-app/:path*'],
    }
    ```
 
@@ -328,6 +357,48 @@ CREATE TABLE sync_log (
 );
 ```
 
+### Scorecards app tables
+
+#### Table: `scorecard_runs`
+One row per pipeline execution. Persists run history for the dashboard.
+
+```sql
+CREATE TABLE scorecard_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  status TEXT NOT NULL CHECK (status IN ('running', 'success', 'no_files', 'error')),
+  triggered_by TEXT NOT NULL DEFAULT 'scheduled' CHECK (triggered_by IN ('scheduled', 'manual', 'cron')),
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  files_processed INT,
+  records_added INT,
+  week INT,
+  email_sent BOOLEAN,
+  result JSONB,
+  error TEXT
+);
+```
+
+#### Table: `scorecard_results`
+One row per run per calibration offset. Stores predictions and site summaries.
+
+```sql
+CREATE TABLE scorecard_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id UUID NOT NULL REFERENCES scorecard_runs(id) ON DELETE CASCADE,
+  calibration_offset FLOAT NOT NULL,
+  week INT NOT NULL,
+  prediction_count INT NOT NULL,
+  mean_score FLOAT,
+  median_score FLOAT,
+  min_score FLOAT,
+  max_score FLOAT,
+  status_counts JSONB,
+  predictions JSONB NOT NULL,
+  site_summary JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
 ### `check_detail` JSONB structure (reference)
 ```json
 {
@@ -362,6 +433,8 @@ ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE referral_checks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_apps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scorecard_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scorecard_results ENABLE ROW LEVEL SECURITY;
 
 -- profiles: users read/update their own row only
 CREATE POLICY "profiles_select_own" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -432,6 +505,7 @@ CREATE TRIGGER on_auth_user_created
   referrals/admin/             → Admin dashboard (all referrals)
   referrals/admin/checks/      → Run Checks
   reports/                     → Report runner (all report types)
+  scorecards/                  → Scorecard dashboard — run pipeline, view history + results (admin only)
   api/platform/admin/create-user     → Platform user creation (service role)
   api/platform/admin/update-user     → Platform user edit/deactivate/delete (service role)
   api/referrals/admin/run-checks      → Run Check from UI (admin, max 4 HR codes)
@@ -444,9 +518,14 @@ CREATE TRIGGER on_auth_user_created
   api/reports/branch-performance     → Branch performance trend proxy
   api/reports/download               → Excel download for any report type
   api/reports/email                  → Email report to user's own email
+  api/scorecards/run                 → Trigger scorecard pipeline (admin, POST)
+  api/scorecards/status              → Live pipeline status (admin, GET)
+  api/scorecards/history             → Run history from Supabase (admin, GET)
+  api/scorecards/results             → Prediction results for a run (admin, GET)
 /api/cron/sync-reminder        → Daily sync reminder email
 /api/cron/check-sync           → Missed sync detection + alert
 /api/cron/referral-digest      → Daily new referrals digest
+/api/cron/scorecard-run        → Trigger scorecard pipeline (Thu/Fri cron)
 ```
 
 ### URL redirects (for old bookmarks)
@@ -470,6 +549,8 @@ NOTIFY_TO_EMAILS=
 CRON_SECRET=
 RAILWAY_PROXY_URL=https://gsapps-production.up.railway.app
 RAILWAY_PROXY_SECRET=<shared secret>
+SCORECARD_SERVICE_URL=https://gsapps-production-6b04.up.railway.app
+SCORECARD_SECRET=<shared secret>
 ```
 
 ### Railway (SQL proxy)
@@ -481,6 +562,17 @@ MSSQL_PASSWORD=
 MSSQL_DATABASE=
 PROXY_SECRET=<same shared secret>
 PORT=3000
+```
+
+### Railway (Scorecard service)
+```
+AZURE_TENANT_ID=
+AZURE_CLIENT_ID=
+AZURE_CLIENT_SECRET=
+RESEND_API_KEY_SCORECARD=
+SCORECARD_SECRET=<same shared secret as Vercel>
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
 ### Python scripts — `scripts/.env` (never commit)
@@ -527,6 +619,92 @@ Browser → Vercel API route (JWT auth + permission check)
        → SQL Server (Greythorn)
        → JSON back through the chain
 ```
+
+---
+
+## Railway Scorecard Service
+
+### Overview
+A Python/FastAPI service deployed on Railway that runs the courier scorecard processing pipeline. Downloads Amazon DSP scorecard PDFs from SharePoint (via Microsoft Graph API), extracts performance data, scores transporters with XGBoost, emails predictions via Resend, and archives results back to SharePoint.
+
+- **Public URL:** `https://gsapps-production-6b04.up.railway.app`
+- **Health check:** `GET /health` → `{ status: 'ok', service: 'scorecard' }`
+- **Auth:** `X-Scorecard-Secret` header validated on `/run` and `/status` endpoints
+- **Root directory:** `railway-scorecard/` within the `gs_apps` repo
+- **Source:** Ported from `w0rkar0und/courier-scorecard-agent` repo (DigitalOcean droplet). Droplet cron jobs disabled — Railway is the active deployment.
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/health` | None | Container health check |
+| POST | `/run` | X-Scorecard-Secret | Trigger pipeline (runs in background thread) |
+| GET | `/status` | X-Scorecard-Secret | Last run result (in-memory) |
+
+`POST /run` accepts `?triggered_by=` query param (`scheduled`, `manual`, or `cron`).
+
+### Pipeline Flow
+```
+Vercel cron (Thu/Fri) or manual trigger → POST /api/cron/scorecard-run or /api/scorecards/run
+  → POST {SCORECARD_SERVICE_URL}/run (with X-Scorecard-Secret header)
+    → Railway scorecard service:
+      1. Downloads PDFs + master from SharePoint (Graph API)
+      2. Extracts tables from PDFs (pdfplumber)
+      3. Transforms to master format (pandas)
+      4. Creates runtime copy of master, appends new data
+      5. Runs XGBoost with 3 calibration offsets (-2.2, -2.0, -1.8)
+      6. Captures predictions data for Supabase persistence
+      7. Emails predictions via Resend
+      8. Archives to SharePoint, cleans up inbox
+      9. Writes run history + prediction results to Supabase
+    → Returns result via GET /status
+```
+
+### Supabase Persistence
+- **`scorecard_runs`** — one row per pipeline execution (status, files processed, week, email sent, error)
+- **`scorecard_results`** — one row per run per calibration offset (predictions array, status counts, site summary)
+- Written via direct Supabase REST API calls (httpx) from the Railway service
+- Graceful degradation — if Supabase env vars are missing, pipeline still runs but doesn't persist
+
+### XGBoost Model
+- **Features:** Delivered, DCR, DNR DPMO, POD, CC, CE (no DEX)
+- **Training:** Weeks 22–41 with known Total Score values
+- **Calibration offsets:** -2.2, -2.0, -1.8 (3 prediction files per run)
+- **Status thresholds:** POOR (<40), FAIR (40–60), GREAT (60–80), FANTASTIC (80–95), FANTASTIC_PLUS (95+)
+
+### SharePoint Paths
+- **Site:** DirectorsStorage / Documents
+- **Inbox:** `Directors Google Sheets/Miten Stuff/Scorecards/2026/Agent Input`
+- **Master:** `Directors Google Sheets/Miten Stuff/Scorecards/2026/Master Combined Input_.xlsx`
+- **Archive:** `Directors Google Sheets/Miten Stuff/Scorecards/2026/Archived/WKXX/`
+
+### Key Design Decisions
+- **FastAPI** (not Flask) — lighter, async-friendly
+- **Background thread** for pipeline execution — `POST /run` returns immediately
+- **Thursday/Friday retry** works naturally — if Thursday processes and deletes PDFs, Friday finds nothing and returns `no_files`
+- **Container filesystem** for temp files during processing — cleaned up after each run
+- **`CURRENT_YEAR = 2026`** in `config.py` — needs updating in January 2027
+- **Azure AD credentials** — "FV Agents OneDrive Access" app, client secret expires Feb 2028
+
+---
+
+## Scorecards App — Frontend
+
+### Dashboard (`/scorecards`)
+Admin-only page with:
+- **Status banner** — shows last run status with coloured indicator (green/amber/red/blue)
+- **"Run Scorecard" button** — triggers pipeline via `POST /api/scorecards/run`, auto-polls every 3s while running
+- **Run history table** — last 20 runs with status, triggered by, started time, duration, week, files, email sent
+- **Expandable results** — click a successful run row to lazy-load prediction results from Supabase (cached after first load)
+
+### Results Detail View
+- **Calibration offset tabs** — switch between -2.2, -2.0, -1.8 results
+- **Summary view** — score stat cards (mean/median/min/max), status distribution (F+/Fantastic/Great/Fair/Poor with counts and percentages), site summary table
+- **Predictions view** — full scrollable table of all transporter predictions (site, transporter ID, score, status badge)
+
+### Access Control
+- Admin-only at every level: middleware, server component `is_admin` check, all API routes check `is_admin`
+- No `user_apps` row needed — admins bypass the access check
 
 ---
 
@@ -685,6 +863,8 @@ Query version: `v1.0`. Weighted day rules: OSM/Support = 0.0, Sameday_6* = 0.5, 
 | 10:30 daily | `/api/cron/sync-reminder` | Email reminder to run contractor sync |
 | 13:00 daily | `/api/cron/check-sync` | Alert if sync hasn't run today |
 | 23:05 daily | `/api/cron/referral-digest` | Daily digest of new referral submissions |
+| 14:00 Thu (UTC) | `/api/cron/scorecard-run` | Trigger scorecard pipeline (3PM UK) |
+| 11:00 Fri (UTC) | `/api/cron/scorecard-run` | Scorecard retry/backup (12PM UK) |
 
 ---
 
@@ -694,12 +874,13 @@ Query version: `v1.0`. Weighted day rules: OSM/Support = 0.0, Sameday_6* = 0.5, 
 - **Supabase:** https://fjhkowrxuczkrafczcru.supabase.co
 - **GitHub:** https://github.com/w0rkar0und/gs_apps
 - **Railway proxy:** https://gsapps-production.up.railway.app
+- **Railway scorecard:** https://gsapps-production-6b04.up.railway.app
 - **Resend sender domain:** greythornservices.uk
 - **Admin email:** miten@greythorn.services
 
 ---
 
-## Current State (as of 21 March 2026)
+## Current State (as of 3 April 2026)
 
 ### Multi-App Platform — Live, Pushed to GitHub
 
@@ -709,7 +890,7 @@ Query version: `v1.0`. Weighted day rules: OSM/Support = 0.0, Sameday_6* = 0.5, 
 - Navbar is multi-app aware with contextual navigation — Greythorn logo PNG at 28x28px
 - Navbar has hamburger menu on mobile (below `sm` breakpoint) with dropdown for nav links, user info, and sign out
 - Platform admin at `/apps/admin` for user management (including admin password reset)
-- Components namespaced under `components/referrals/`, `components/reports/`, `components/platform/`
+- Components namespaced under `components/referrals/`, `components/reports/`, `components/scorecards/`, `components/platform/`
 - All referral routes under `/referrals/` prefix
 - Old URLs redirected via `next.config.ts`
 - Repo renamed to `gs_apps` on GitHub, Vercel, and Supabase
@@ -751,6 +932,19 @@ All 8 build phases complete plus additional reports. Reports app is live at `/re
 - Deposit report updated: now uses split query pattern (like Settlement), shows only most recent deposit with instalment payments as separate section, 5 collapsible sections with collapsed header summaries
 - Additional: Branch/Client Performance report — multi-week trend (default 4 weeks, max 12) extending Working Days by Client. Line chart with drill-down (client → branch → contract type), pivoted table with week columns, filters, Excel download + email
 
+### Scorecards App — Live
+
+Courier scorecard prediction pipeline ported from DigitalOcean droplet to Railway, with frontend dashboard at `/scorecards`:
+- Railway service (`railway-scorecard/`): Python/FastAPI, processes Amazon DSP scorecard PDFs via XGBoost
+- Pipeline: SharePoint download → PDF extraction → XGBoost scoring (3 calibration offsets) → email → SharePoint archive
+- Supabase persistence: `scorecard_runs` (run history) + `scorecard_results` (predictions per calibration offset)
+- Frontend dashboard: admin-only, trigger runs, view history, expandable prediction results with summary stats and full transporter table
+- Vercel cron: Thursday 3PM UK + Friday 12PM UK (backup). Manual runs via dashboard also supported
+- DigitalOcean droplet cron jobs disabled — Railway is the active deployment
+- Auth: `X-Scorecard-Secret` header between Vercel and Railway (same pattern as SQL proxy)
+- `CURRENT_YEAR = 2026` in `config.py` — update in January 2027
+- Azure AD client secret for Graph API expires Feb 2028
+
 ### Build Configuration
 
 - `next.config.ts` includes `serverExternalPackages: ['exceljs']` (Turbopack mangles external module names)
@@ -758,14 +952,16 @@ All 8 build phases complete plus additional reports. Reports app is live at `/re
 - Resend client instantiated inside handler functions (not at module scope) to avoid build-time env var errors
 - TypeScript pinned at 5.9.3 in package-lock.json
 
-### Pending Migrations
+### Migrations
 
-Check which migrations have been applied to Supabase. The following exist in the repo:
+All migrations applied to Supabase:
 - `001_initial_schema.sql` — core tables, RLS, triggers
 - `002_user_apps.sql` — multi-app user access table
 - `003_profile_fields.sql` — add full_name, email, is_active to profiles
 - `004_user_apps_permissions.sql` — add permissions JSONB to user_apps
 - `005_sync_log_rls.sql` — enable RLS on sync_log
+- `006_scorecard_runs.sql` — scorecard run history table
+- `007_scorecard_results.sql` — scorecard prediction results table
 
 ### Users
 
@@ -795,6 +991,11 @@ Check which migrations have been applied to Supabase. The following exist in the
 17. **Vehicle ownership** — `VehicleOwnershipType` joined via `Vehicle.VehicleOwnershipTypeId`; `IsOwnedByContractor = 1` = DA supplied (contractor's own); `!= 1` = Greythorn/company vehicle
 18. **Run Check from UI** — Railway proxy runs SQL queries (including weighted day calculation for hourly contracts), Vercel route handles threshold check, discrepancy detection, Supabase writes, and Resend email. Max 4 HR codes per run to keep response times under 10s. `selectAllVisible` caps at 4. Python script `referral_check.py` still used for `--all` bulk runs
 19. **Weighted days in SQL** — all weighted day calculations (half-day rules, hourly contracts, zero-weight types) are computed in the Railway proxy SQL, not in the presentation layer. The TypeScript `calcWorkingDays` function in `lib/working-days.ts` is no longer used
+20. **Scorecard service** — separate Railway service (`railway-scorecard/`) from the SQL proxy (`railway-proxy/`). Uses FastAPI + background thread; pipeline runs asynchronously after `POST /run` returns
+21. **Scorecard Supabase persistence** — uses direct REST API calls via `httpx` (not `supabase-py`) to keep the Docker image lighter. Graceful degradation if env vars missing
+22. **Scorecard predictions capture** — predictions data is extracted from Excel sheets in-memory before the archive step deletes the files. Stored as JSONB in `scorecard_results`
+23. **Scorecard container temp files** — runtime copies, extracted data, model outputs are within the container filesystem (not external systems), so this doesn't violate the no-temp-files rule
+24. **Scorecard Thursday/Friday pattern** — if Thursday processes and deletes PDFs from SharePoint inbox, Friday naturally finds nothing and returns `no_files`. No explicit skip logic needed
 
 ---
 
