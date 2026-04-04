@@ -19,7 +19,7 @@ const REPORT_LABELS: Record<ReportType, string> = {
 
 const REPORTS_WITHOUT_HR_CODE: ReportType[] = ['working-days-by-client', 'branch-performance']
 
-const inputClasses = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white uppercase"
+const inputClasses = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white uppercase"
 
 interface Props {
   allowedReports: ReportType[]
@@ -182,7 +182,7 @@ export default function ReportRunner({ allowedReports }: Props) {
               id="reportType"
               value={reportType}
               onChange={(e) => setReportType(e.target.value as ReportType)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white"
             >
               {allowedReports.map((rt) => (
                 <option key={rt} value={rt}>{REPORT_LABELS[rt]}</option>

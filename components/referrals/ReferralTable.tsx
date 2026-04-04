@@ -13,7 +13,7 @@ function formatDate(dateStr: string): string {
 
 function StatusBadge({ status }: { status: Referral['status'] }) {
   const config = {
-    pending: { label: 'Pending', classes: 'bg-slate-100 text-slate-600' },
+    pending: { label: 'Pending', classes: 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200' },
     not_yet_eligible: { label: 'Not Yet Eligible', classes: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200' },
     approved: { label: 'Approved', classes: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200' },
   }

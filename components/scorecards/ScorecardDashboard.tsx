@@ -206,8 +206,8 @@ function ResultsDetail({ results }: { results: ScorecardResult[] }) {
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto max-h-96">
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white">
-                  <tr className="border-b border-slate-200 text-left text-slate-500">
+                <thead className="sticky top-0 bg-white shadow-[0_1px_0_0_theme(colors.slate.200)]">
+                  <tr className="text-left text-slate-500">
                     <th className="px-4 py-2 font-medium">Site</th>
                     <th className="px-4 py-2 font-medium">Transporter ID</th>
                     <th className="px-4 py-2 font-medium text-right">Score</th>
@@ -401,7 +401,7 @@ export default function ScorecardDashboard({ initialRuns }: { initialRuns: Score
 
       {/* Run history */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100">
           <h2 className="text-sm font-semibold text-slate-900">Run History</h2>
         </div>
 

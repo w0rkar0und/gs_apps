@@ -37,7 +37,7 @@ const APP_PERMISSIONS: Record<string, { key: string; label: string }[]> = {
   ],
 }
 
-const inputClasses = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white"
+const inputClasses = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white"
 
 export default function PlatformUserManagement({ initialUsers, allApps, currentUserId }: Props) {
   const [users, setUsers] = useState(initialUsers)

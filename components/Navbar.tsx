@@ -37,7 +37,7 @@ export default function Navbar({ isAdmin, displayId }: NavbarProps) {
     : []
 
   return (
-    <nav className="bg-white border-b border-slate-200/80 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
+    <nav className="border-b border-slate-200/80 sticky top-0 z-50 backdrop-blur-md bg-white/90">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
         <div className="flex items-center gap-8">
           <Link href="/apps" className="flex items-center gap-2">
@@ -75,14 +75,14 @@ export default function Navbar({ isAdmin, displayId }: NavbarProps) {
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-slate-50 rounded-lg">
-            <div className="w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center">
-              <span className="text-[10px] font-semibold text-slate-600 uppercase">{displayId.charAt(0)}</span>
+            <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase">{displayId.charAt(0)}</span>
             </div>
             <span className="text-sm text-slate-600">{displayId}</span>
           </div>
           <button
             onClick={handleSignOut}
-            className="hidden sm:block text-sm text-slate-400 hover:text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-50"
+            className="hidden sm:block text-sm text-slate-400 hover:text-slate-600 px-2.5 py-1 rounded-lg hover:bg-slate-100"
           >
             Sign out
           </button>
