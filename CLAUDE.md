@@ -984,7 +984,7 @@ Query version: `v1.0`. Weighted day rules: OSM/Support = 0.0, Sameday_6* = 0.5, 
 
 ---
 
-## Current State (as of 3 April 2026)
+## Current State (as of 4 April 2026)
 
 ### Multi-App Platform — Live, Pushed to GitHub
 
@@ -1001,6 +1001,8 @@ Query version: `v1.0`. Weighted day rules: OSM/Support = 0.0, Sameday_6* = 0.5, 
 - Local directory renamed to `gs_apps`
 - Login page uses Greythorn strapline logo with subtle gradient background, tries both `@greythorn.internal` and `@greythorn.external` domains sequentially (no regex-based domain detection)
 - Browser favicon set to Greythorn "G" logo (`/greythorn-logo.png`) via metadata in `app/layout.tsx`
+- **Greythorn brand identity applied** — Nunito Sans font (Avenir web fallback per brand guidelines), Greythorn blue (`#3B6E8F`, Pantone 5405 C) as primary accent, brand dark (`#58595B`) and mid (`#A7A9AC`) for text, cool grey page background (`#F7F8F9`). Brand tokens defined as CSS variables in `globals.css` via Tailwind v4 `@theme inline` block (`gt-blue`, `gt-blue-dark`, `gt-dark`, `gt-mid`, `gt-bg`). Platform-wide — all apps inherit the font and background; component-level colour swaps applied to Fleet first, other apps to follow
+- Brand guidelines reference: `docs/Greythorn Brand Guidelines_V2.pdf` — primary font Avenir (Nunito Sans web fallback), Pantone 5405 C blue, Pantone Black 80%/40% greys
 
 ### Referrals App — Fully Built
 
@@ -1054,10 +1056,13 @@ Courier scorecard prediction pipeline ported from DigitalOcean droplet to Railwa
 Vehicle status dashboard at `/fleet` with live Greythorn DB queries:
 - Railway proxy endpoint `POST /report/vehicle-status` with 3 modes: snapshot (fleet overview), history (per-vehicle), contractor-history (per-contractor)
 - Frontend: 4-panel dashboard (Overview, Assignment, Composition, Compliance) with shared filter bar
-- Filter bar: Branch, Ownership, Status (defaults Active), Assignment, Type, Model dropdowns + VRM and HR Code text search
+- **Filter bar redesigned** — two-zone layout: filter strip (CSS grid of 6 dropdowns in responsive `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`, plus text inputs row) and separate action bar below (vehicle count left, Download/Email buttons right)
 - Assignment Lookup: search by VRM or HR Code for full current + historical assignments regardless of active status
-- Recharts visualisations: stacked bar chart by branch, donut for ownership split, model bar chart
+- Recharts visualisations: stacked bar chart by branch (Greythorn blue + brand dark grey), donut for ownership split, model bar chart (single brand colour)
 - Compliance panel: MOT, Road Tax, Insurance renewal dates with red/amber/green urgency badges
+- **Mobile responsive tables** — Assignment and Compliance tables use `sm:hidden` card layout / `hidden sm:block` table pattern (same as Referrals app). Assignment cards show key-value pairs with expandable history mini-cards. Compliance cards show date + badge rows per compliance type
+- **Assignment table alignment fixed** — replaced CSS grid hack (`grid-cols-[20px_1fr...]` inside `<td colSpan>`) with proper `<tr>/<td>` rows using `Fragment` for expand/collapse
+- **Greythorn brand identity** — stat cards with `border-l-4 border-l-gt-blue` accent, filter bar with `border-t-2 border-t-gt-blue` accent, panel tabs and compliance filter buttons use `bg-gt-blue` active state, chart colours use brand palette, all text uses `gt-dark`/`gt-mid` tokens, card shadows removed (background contrast replaces them)
 - Excel download and email via ExcelJS + Resend (same pattern as Reports app)
 - Access: admin or `user_apps` with `app_slug = 'fleet'`. Currently admin-only; fleet team users to be added
 - Ownership: determined by `VehicleOwnershipTypeName` — only "DA Supplied Vehicle" is DA, all others are Greythorn
@@ -1121,6 +1126,35 @@ All migrations applied to Supabase:
 27. **Fleet LEFT JOINs** — User/UserProfile joins in fleet queries must be LEFT JOIN, not INNER — some contractors lack these rows and INNER JOINs silently drop them from results
 28. **Fleet client-side filtering** — snapshot returns entire fleet (~hundreds of vehicles), all filtering/grouping happens in-browser for instant interaction. Assignment history loaded on demand per vehicle/contractor
 29. **Fleet Greythorn DB columns** — some columns in the DBeaver ERD export do not exist in the actual database (e.g. `DartFrontAccount`, `SpareKey`, `Logbook`, `CongestionAccount`, `Route`). Always verify column existence before adding to queries
+30. **Greythorn brand tokens** — defined as CSS variables in `globals.css` `:root` and exposed via Tailwind v4 `@theme inline` block. Token names: `gt-blue` (`#3B6E8F`), `gt-blue-dark` (`#2D5670`), `gt-dark` (`#58595B`), `gt-mid` (`#A7A9AC`), `gt-bg` (`#F7F8F9`). Use `text-gt-dark` / `text-gt-mid` / `bg-gt-blue` etc. in Tailwind classes
+31. **Nunito Sans font** — loaded via `next/font/google` in `app/layout.tsx` with weights 300, 400, 600, 700. CSS variable `--font-nunito-sans`. Replaces Geist as the platform-wide sans-serif font
+32. **Mobile table pattern** — `sm:hidden` card list + `hidden sm:block` table, matching Referrals app pattern. Used in Fleet Assignment and Compliance panels. Lookup result tables left as-is (small enough for horizontal scroll)
+33. **Assignment table proper rows** — uses `Fragment` from React to wrap data `<tr>` + expanded history `<tr>` as siblings inside `<tbody>`. Never use CSS grid inside `<td colSpan>` for table row simulation — it causes column misalignment
+
+---
+
+## Outstanding Work
+
+### Fleet Dashboard — Loading/Transition States
+
+**Status:** Not started. Design review feedback item, not yet specced.
+
+**What:** The Fleet dashboard has no loading skeletons or panel transitions. Loading states are plain text ("Loading fleet data...", "Loading..."). Panel switches are instant conditional renders with no transition.
+
+**Scope:**
+- Skeleton loaders for the initial fleet data load (stat cards, chart containers, table area)
+- Subtle fade or slide transition when switching between panels (Overview → Assignment → Composition → Compliance)
+- Skeleton or spinner for assignment history expansion (per-vehicle lazy load)
+
+**Why:** High-impact polish for a data-heavy dashboard. Prevents jarring pop-in of large tables and charts.
+
+**Design specs and plans location:** `docs/superpowers/specs/` and `docs/superpowers/plans/`
+
+### Platform-Wide Brand Rollout
+
+**Status:** Fleet done. Other apps pending.
+
+**What:** Fleet dashboard has full Greythorn brand identity (colours, typography, surface treatments). Referrals, Reports, and Scorecards still use default Tailwind colour classes (`text-slate-*`, `bg-blue-*`, `bg-emerald-*`). Font and page background are already platform-wide — only component-level colour swaps remain for each app.
 
 ---
 
