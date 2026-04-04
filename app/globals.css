@@ -1,19 +1,33 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #F7F8F9;
+  --foreground: #58595B;
   --card: #ffffff;
   --border: #e2e8f0;
-  --muted: #64748b;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
+  --muted: #A7A9AC;
+  --accent: #3B6E8F;
+  --accent-hover: #2D5670;
+
+  /* Greythorn brand tokens */
+  --gt-blue: #3B6E8F;
+  --gt-blue-dark: #2D5670;
+  --gt-blue-light: rgba(59, 110, 143, 0.1);
+  --gt-dark: #58595B;
+  --gt-mid: #A7A9AC;
+  --gt-bg: #F7F8F9;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-gt-blue: var(--gt-blue);
+  --color-gt-blue-dark: var(--gt-blue-dark);
+  --color-gt-blue-light: var(--gt-blue-light);
+  --color-gt-dark: var(--gt-dark);
+  --color-gt-mid: var(--gt-mid);
+  --color-gt-bg: var(--gt-bg);
+  --font-sans: var(--font-nunito-sans);
   --font-mono: var(--font-geist-mono);
 }
 
