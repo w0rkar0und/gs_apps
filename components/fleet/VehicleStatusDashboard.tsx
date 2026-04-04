@@ -1165,38 +1165,76 @@ export default function VehicleStatusDashboard() {
                 No compliance issues found for the selected filter.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-gt-mid">
-                      <th className="px-4 py-3 font-medium">Registration</th>
-                      <th className="px-4 py-3 font-medium">Branch</th>
-                      <th className="px-4 py-3 font-medium">Model</th>
-                      <th className="px-4 py-3 font-medium">MOT Due</th>
-                      <th className="px-4 py-3 font-medium">MOT Status</th>
-                      <th className="px-4 py-3 font-medium">Road Tax Due</th>
-                      <th className="px-4 py-3 font-medium">Tax Status</th>
-                      <th className="px-4 py-3 font-medium">Insurance Renewal</th>
-                      <th className="px-4 py-3 font-medium">Insurance Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {complianceVehicles.map((v) => (
-                      <tr key={v.VehicleId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                        <td className="px-4 py-3 text-gt-dark font-medium">{v.RegistrationNumber}</td>
-                        <td className="px-4 py-3 text-gt-dark">{v.BranchName || '-'}</td>
-                        <td className="px-4 py-3 text-gt-dark">{v.ModelName || '-'}</td>
-                        <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.NextMotDue)}</td>
-                        <td className="px-4 py-3"><ComplianceBadge status={v.motStatus} /></td>
-                        <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.RoadTaxDue)}</td>
-                        <td className="px-4 py-3"><ComplianceBadge status={v.taxStatus} /></td>
-                        <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.InsuranceRenewalDate)}</td>
-                        <td className="px-4 py-3"><ComplianceBadge status={v.insuranceStatus} /></td>
+              <>
+                {/* Mobile: card layout */}
+                <div className="sm:hidden divide-y divide-slate-200">
+                  {complianceVehicles.map((v) => (
+                    <div key={v.VehicleId} className="p-4">
+                      <div className="mb-2">
+                        <div className="text-gt-dark font-semibold">{v.RegistrationNumber}</div>
+                        <div className="text-xs text-gt-mid">{v.BranchName || '-'} · {v.ModelName || '-'}</div>
+                      </div>
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gt-mid">MOT</span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-gt-dark">{formatDateUK(v.NextMotDue)}</span>
+                            <ComplianceBadge status={v.motStatus} />
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gt-mid">Road Tax</span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-gt-dark">{formatDateUK(v.RoadTaxDue)}</span>
+                            <ComplianceBadge status={v.taxStatus} />
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gt-mid">Insurance</span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-gt-dark">{formatDateUK(v.InsuranceRenewalDate)}</span>
+                            <ComplianceBadge status={v.insuranceStatus} />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: table layout */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-gt-mid">
+                        <th className="px-4 py-3 font-medium">Registration</th>
+                        <th className="px-4 py-3 font-medium">Branch</th>
+                        <th className="px-4 py-3 font-medium">Model</th>
+                        <th className="px-4 py-3 font-medium">MOT Due</th>
+                        <th className="px-4 py-3 font-medium">MOT Status</th>
+                        <th className="px-4 py-3 font-medium">Road Tax Due</th>
+                        <th className="px-4 py-3 font-medium">Tax Status</th>
+                        <th className="px-4 py-3 font-medium">Insurance Renewal</th>
+                        <th className="px-4 py-3 font-medium">Insurance Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {complianceVehicles.map((v) => (
+                        <tr key={v.VehicleId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <td className="px-4 py-3 text-gt-dark font-medium">{v.RegistrationNumber}</td>
+                          <td className="px-4 py-3 text-gt-dark">{v.BranchName || '-'}</td>
+                          <td className="px-4 py-3 text-gt-dark">{v.ModelName || '-'}</td>
+                          <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.NextMotDue)}</td>
+                          <td className="px-4 py-3"><ComplianceBadge status={v.motStatus} /></td>
+                          <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.RoadTaxDue)}</td>
+                          <td className="px-4 py-3"><ComplianceBadge status={v.taxStatus} /></td>
+                          <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.InsuranceRenewalDate)}</td>
+                          <td className="px-4 py-3"><ComplianceBadge status={v.insuranceStatus} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>
