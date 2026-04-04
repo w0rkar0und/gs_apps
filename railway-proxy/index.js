@@ -936,6 +936,126 @@ app.post('/report/contractor-sync', async (req, res) => {
   }
 });
 
+// ── Vehicle Status (Fleet dashboard) ──
+app.post('/report/vehicle-status', async (req, res) => {
+  const { mode, vehicleId } = req.body;
+
+  try {
+    const p = await getPool();
+
+    if (mode === 'history') {
+      // Assignment history for a specific vehicle
+      if (!vehicleId) return res.status(400).json({ error: 'vehicleId is required for history mode' });
+
+      const result = await p.request()
+        .input('VehicleId', sql.Int, vehicleId)
+        .query(`
+          SELECT
+              cv.ContractorVehicleId,
+              c.HrCode,
+              up.FirstName + ' ' + up.LastName         AS ContractorName,
+              CONVERT(VARCHAR(50), b.BranchName)        AS ContractorBranch,
+              CONVERT(VARCHAR, cv.FromDate, 103)         AS FromDate,
+              CONVERT(VARCHAR, cv.ToDate, 103)           AS ToDate,
+              CASE WHEN cv.ToDate IS NULL
+                   OR CAST(cv.ToDate AS DATE) >= CAST(GETDATE() AS DATE)
+                   THEN 1 ELSE 0 END                     AS IsCurrent
+          FROM ContractorVehicle cv
+          JOIN Contractor c        ON c.ContractorId = cv.ContractorId
+          JOIN [User] u            ON u.UserId = c.UserId
+          JOIN UserProfile up      ON up.UserId = u.UserId
+          LEFT JOIN UserBranchRole ubr ON ubr.UserId = c.UserId
+          LEFT JOIN Branch b       ON b.BranchId = ubr.BranchId
+          WHERE cv.VehicleId = @VehicleId
+          ORDER BY cv.FromDate DESC
+        `);
+
+      return res.json({ history: result.recordset });
+    }
+
+    // Default: snapshot mode — one row per vehicle with current assignment
+    const result = await p.request().query(`
+      SELECT
+          v.VehicleId,
+          v.RegistrationNumber,
+          CONVERT(VARCHAR, v.IsActive)                 AS IsActive,
+          CONVERT(VARCHAR, v.IsSorn)                   AS IsSorn,
+          CAST(v.Mileage AS FLOAT)                     AS Mileage,
+          v.Year,
+          CONVERT(VARCHAR, v.NextMotDue, 23)            AS NextMotDue,
+          CONVERT(VARCHAR, v.RoadTaxDue, 23)            AS RoadTaxDue,
+          CONVERT(VARCHAR, v.PurchaseDate, 23)          AS PurchaseDate,
+          CAST(v.Value AS FLOAT)                       AS Value,
+          CAST(v.Payload AS FLOAT)                     AS Payload,
+          v.Route,
+          CONVERT(VARCHAR, v.SpareKey)                  AS SpareKey,
+          CONVERT(VARCHAR, v.DartFrontAccount)          AS DartFrontAccount,
+          CONVERT(VARCHAR, v.Logbook)                   AS Logbook,
+          CONVERT(VARCHAR, v.CongestionAccount)         AS CongestionAccount,
+
+          CONVERT(VARCHAR(50), vb.BranchName)          AS BranchName,
+          CONVERT(VARCHAR(25), vb.BranchAlias)         AS BranchAlias,
+
+          CONVERT(VARCHAR(50), vot.VehicleOwnershipTypeName) AS OwnershipType,
+          CONVERT(VARCHAR, vot.IsOwnedByContractor)    AS IsOwnedByContractor,
+
+          CONVERT(VARCHAR(50), vm.VehicleModelName)    AS ModelName,
+          CONVERT(VARCHAR(50), vt.VehicleTypeName)     AS TypeName,
+          CONVERT(VARCHAR(50), vc.VehicleCategoryName) AS CategoryName,
+          CONVERT(VARCHAR(50), vcol.VehicleColorName)  AS ColorName,
+          CONVERT(VARCHAR(50), vs.VehicleSupplierName) AS SupplierName,
+
+          CONVERT(VARCHAR(50), vip.VehicleInsuranceProviderName) AS InsuranceProvider,
+          CONVERT(VARCHAR, vip.RenewalDate, 23)        AS InsuranceRenewalDate,
+
+          CONVERT(VARCHAR(50), vtp.VehicleTrackerProviderName)  AS TrackerProvider,
+          CONVERT(VARCHAR(50), vbp.VehicleBreakdownProviderName) AS BreakdownProvider,
+
+          ca.HrCode                                    AS ContractorHrCode,
+          ca.ContractorName                            AS ContractorName,
+          ca.ContractorBranch                          AS ContractorBranch,
+          CONVERT(VARCHAR, ca.FromDate, 103)            AS AttachedSince,
+          ca.AssignmentCount                           AS AssignmentCount
+
+      FROM Vehicle v
+      LEFT JOIN Branch vb               ON vb.BranchId               = v.BranchId
+      LEFT JOIN VehicleOwnershipType vot ON vot.VehicleOwnershipTypeId = v.VehicleOwnershipTypeId
+      LEFT JOIN VehicleModel vm         ON vm.VehicleModelId          = v.VehicleModelId
+      LEFT JOIN VehicleType vt          ON vt.VehicleTypeId           = v.VehicleTypeId
+      LEFT JOIN VehicleCategory vc      ON vc.VehicleCategoryId       = v.VehicleCategoryId
+      LEFT JOIN VehicleColor vcol       ON vcol.VehicleColorId        = v.VehicleColorId
+      LEFT JOIN VehicleSupplier vs      ON vs.VehicleSupplierId       = v.VehicleSupplierId
+      LEFT JOIN VehicleInsuranceProvider vip ON vip.VehicleInsuranceProviderId = v.InsuranceProviderId
+      LEFT JOIN VehicleTrackerProvider vtp   ON vtp.VehicleTrackerProviderId   = v.TrackerProviderId
+      LEFT JOIN VehicleBreakdownProvider vbp ON vbp.VehicleBreakdownProviderId = v.BreakdownProviderId
+      OUTER APPLY (
+          SELECT TOP 1
+              c.HrCode,
+              up.FirstName + ' ' + up.LastName AS ContractorName,
+              b.BranchName AS ContractorBranch,
+              cv.FromDate,
+              (SELECT COUNT(*) FROM ContractorVehicle cv2 WHERE cv2.VehicleId = v.VehicleId) AS AssignmentCount
+          FROM ContractorVehicle cv
+          JOIN Contractor c        ON c.ContractorId = cv.ContractorId
+          JOIN [User] u            ON u.UserId = c.UserId
+          JOIN UserProfile up      ON up.UserId = u.UserId
+          LEFT JOIN UserBranchRole ubr ON ubr.UserId = c.UserId
+          LEFT JOIN Branch b       ON b.BranchId = ubr.BranchId
+          WHERE cv.VehicleId = v.VehicleId
+            AND CAST(cv.FromDate AS DATE) <= CAST(GETDATE() AS DATE)
+            AND (cv.ToDate IS NULL OR CAST(cv.ToDate AS DATE) >= CAST(GETDATE() AS DATE))
+          ORDER BY cv.FromDate DESC
+      ) ca
+      ORDER BY v.RegistrationNumber
+    `);
+
+    res.json({ vehicles: result.recordset });
+  } catch (err) {
+    console.error('Vehicle status error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Start server ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

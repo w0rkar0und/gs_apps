@@ -2,7 +2,7 @@ export interface AppDefinition {
   slug: string
   name: string
   description: string
-  icon: 'referrals' | 'reports' | 'scorecards' | 'generic'
+  icon: 'referrals' | 'reports' | 'scorecards' | 'fleet' | 'generic'
   basePath: string
 }
 
@@ -27,6 +27,13 @@ export const APPS: AppDefinition[] = [
     description: 'Run and monitor courier scorecard predictions',
     icon: 'scorecards',
     basePath: '/scorecards',
+  },
+  {
+    slug: 'fleet',
+    name: 'Fleet',
+    description: 'Vehicle status, assignments, and fleet compliance',
+    icon: 'fleet',
+    basePath: '/fleet',
   },
 ]
 
