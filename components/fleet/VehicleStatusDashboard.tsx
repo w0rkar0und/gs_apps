@@ -21,7 +21,6 @@ interface Vehicle {
   Value: number | null
   Payload: number | null
   BranchName: string | null
-  BranchAlias: string | null
   OwnershipType: string | null
   IsOwnedByContractor: string | null
   ModelName: string | null
@@ -168,6 +167,7 @@ export default function VehicleStatusDashboard() {
   const [lookupContractor, setLookupContractor] = useState<ContractorLookup | null>(null)
   const [lookupVehicle, setLookupVehicle] = useState<Vehicle | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupError, setLookupError] = useState<string | null>(null)
 
   // Assignment history
   const [historyVehicleId, setHistoryVehicleId] = useState<number | null>(null)
@@ -263,6 +263,7 @@ export default function VehicleStatusDashboard() {
     setLookupContractor(null)
     setLookupVehicleHistory(null)
     setLookupVehicle(null)
+    setLookupError(null)
 
     // Find the vehicle in the full dataset (ignoring active filter)
     const match = vehicles.find((v) => v.RegistrationNumber?.toUpperCase() === vrm)
@@ -280,12 +281,14 @@ export default function VehicleStatusDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'history', vehicleId: match.VehicleId }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        setLookupVehicleHistory(data.history)
+      const data = await res.json()
+      if (!res.ok) {
+        setLookupError(data.error || 'Lookup failed.')
+        return
       }
+      setLookupVehicleHistory(data.history)
     } catch {
-      // silent
+      setLookupError('Failed to connect to fleet service.')
     } finally {
       setLookupLoading(false)
     }
@@ -299,6 +302,7 @@ export default function VehicleStatusDashboard() {
     setLookupVehicle(null)
     setLookupContractorHistory(null)
     setLookupContractor(null)
+    setLookupError(null)
 
     try {
       const res = await fetch('/api/fleet/data', {
@@ -306,13 +310,15 @@ export default function VehicleStatusDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'contractor-history', hrCode: code }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        setLookupContractor(data.contractor)
-        setLookupContractorHistory(data.history)
+      const data = await res.json()
+      if (!res.ok) {
+        setLookupError(data.error || 'Lookup failed.')
+        return
       }
+      setLookupContractor(data.contractor)
+      setLookupContractorHistory(data.history)
     } catch {
-      // silent
+      setLookupError('Failed to connect to fleet service.')
     } finally {
       setLookupLoading(false)
     }
@@ -325,6 +331,7 @@ export default function VehicleStatusDashboard() {
     setLookupContractorHistory(null)
     setLookupContractor(null)
     setLookupVehicle(null)
+    setLookupError(null)
   }
 
   async function handleDownload() {
@@ -746,6 +753,9 @@ export default function VehicleStatusDashboard() {
 
             {/* Lookup results */}
             {lookupLoading && <p className="text-sm text-slate-400 mt-4">Loading...</p>}
+            {lookupError && (
+              <div className="mt-4 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-700">{lookupError}</div>
+            )}
 
             {/* VRM lookup results */}
             {lookupVehicleHistory !== null && !lookupLoading && (

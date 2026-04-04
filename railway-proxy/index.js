@@ -954,7 +954,7 @@ app.post('/report/vehicle-status', async (req, res) => {
               cv.ContractorVehicleId,
               v.VehicleId,
               v.RegistrationNumber,
-              CONVERT(VARCHAR(50), vb.BranchName)          AS VehicleBranch,
+              CONVERT(VARCHAR(25), ISNULL(vb.BranchAlias, vb.BranchName)) AS VehicleBranch,
               CONVERT(VARCHAR(50), vm.VehicleModelName)     AS ModelName,
               CONVERT(VARCHAR(50), vot.VehicleOwnershipTypeName) AS OwnershipType,
               CONVERT(VARCHAR, v.IsActive)                  AS VehicleIsActive,
@@ -978,7 +978,7 @@ app.post('/report/vehicle-status', async (req, res) => {
         .query(`
           SELECT c.HrCode,
                  ISNULL(up.FirstName + ' ' + up.LastName, '') AS ContractorName,
-                 CONVERT(VARCHAR(50), b.BranchName) AS ContractorBranch
+                 CONVERT(VARCHAR(25), ISNULL(b.BranchAlias, b.BranchName)) AS ContractorBranch
           FROM Contractor c
           LEFT JOIN [User] u ON u.UserId = c.UserId
           LEFT JOIN UserProfile up ON up.UserId = u.UserId
@@ -1004,7 +1004,7 @@ app.post('/report/vehicle-status', async (req, res) => {
               cv.ContractorVehicleId,
               c.HrCode,
               ISNULL(up.FirstName + ' ' + up.LastName, '') AS ContractorName,
-              CONVERT(VARCHAR(50), b.BranchName)        AS ContractorBranch,
+              CONVERT(VARCHAR(25), ISNULL(b.BranchAlias, b.BranchName)) AS ContractorBranch,
               CONVERT(VARCHAR, cv.FromDate, 103)         AS FromDate,
               CONVERT(VARCHAR, cv.ToDate, 103)           AS ToDate,
               CASE WHEN cv.ToDate IS NULL
@@ -1038,8 +1038,7 @@ app.post('/report/vehicle-status', async (req, res) => {
           CAST(v.Value AS FLOAT)                       AS Value,
           CAST(v.Payload AS FLOAT)                     AS Payload,
 
-          CONVERT(VARCHAR(50), vb.BranchName)          AS BranchName,
-          CONVERT(VARCHAR(25), vb.BranchAlias)         AS BranchAlias,
+          CONVERT(VARCHAR(25), ISNULL(vb.BranchAlias, vb.BranchName)) AS BranchName,
 
           CONVERT(VARCHAR(50), vot.VehicleOwnershipTypeName) AS OwnershipType,
           CONVERT(VARCHAR, vot.IsOwnedByContractor)    AS IsOwnedByContractor,
@@ -1076,14 +1075,14 @@ app.post('/report/vehicle-status', async (req, res) => {
       OUTER APPLY (
           SELECT TOP 1
               c.HrCode,
-              up.FirstName + ' ' + up.LastName AS ContractorName,
-              b.BranchName AS ContractorBranch,
+              ISNULL(up.FirstName + ' ' + up.LastName, '') AS ContractorName,
+              ISNULL(b.BranchAlias, b.BranchName) AS ContractorBranch,
               cv.FromDate,
               (SELECT COUNT(*) FROM ContractorVehicle cv2 WHERE cv2.VehicleId = v.VehicleId) AS AssignmentCount
           FROM ContractorVehicle cv
           JOIN Contractor c        ON c.ContractorId = cv.ContractorId
-          JOIN [User] u            ON u.UserId = c.UserId
-          JOIN UserProfile up      ON up.UserId = u.UserId
+          LEFT JOIN [User] u       ON u.UserId = c.UserId
+          LEFT JOIN UserProfile up ON up.UserId = u.UserId
           LEFT JOIN UserBranchRole ubr ON ubr.UserId = c.UserId
           LEFT JOIN Branch b       ON b.BranchId = ubr.BranchId
           WHERE cv.VehicleId = v.VehicleId
