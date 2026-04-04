@@ -50,6 +50,25 @@ interface AssignmentHistory {
   IsCurrent: number
 }
 
+interface ContractorVehicleHistory {
+  ContractorVehicleId: number
+  VehicleId: number
+  RegistrationNumber: string
+  VehicleBranch: string | null
+  ModelName: string | null
+  OwnershipType: string | null
+  VehicleIsActive: string
+  FromDate: string
+  ToDate: string | null
+  IsCurrent: number
+}
+
+interface ContractorLookup {
+  HrCode: string
+  ContractorName: string
+  ContractorBranch: string | null
+}
+
 type Panel = 'overview' | 'assignment' | 'composition' | 'compliance'
 
 // ── Helpers ──
@@ -138,6 +157,17 @@ export default function VehicleStatusDashboard() {
   const [filterAttachment, setFilterAttachment] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterModel, setFilterModel] = useState('')
+  const [filterVrm, setFilterVrm] = useState('')
+  const [filterHrCode, setFilterHrCode] = useState('')
+
+  // Assignment lookup
+  const [lookupVrm, setLookupVrm] = useState('')
+  const [lookupHrCode, setLookupHrCode] = useState('')
+  const [lookupVehicleHistory, setLookupVehicleHistory] = useState<AssignmentHistory[] | null>(null)
+  const [lookupContractorHistory, setLookupContractorHistory] = useState<ContractorVehicleHistory[] | null>(null)
+  const [lookupContractor, setLookupContractor] = useState<ContractorLookup | null>(null)
+  const [lookupVehicle, setLookupVehicle] = useState<Vehicle | null>(null)
+  const [lookupLoading, setLookupLoading] = useState(false)
 
   // Assignment history
   const [historyVehicleId, setHistoryVehicleId] = useState<number | null>(null)
@@ -194,9 +224,11 @@ export default function VehicleStatusDashboard() {
       if (filterAttachment === 'unattached' && v.ContractorHrCode) return false
       if (filterType && v.TypeName !== filterType) return false
       if (filterModel && v.ModelName !== filterModel) return false
+      if (filterVrm && !v.RegistrationNumber?.toLowerCase().includes(filterVrm.toLowerCase())) return false
+      if (filterHrCode && !v.ContractorHrCode?.toLowerCase().includes(filterHrCode.toLowerCase())) return false
       return true
     })
-  }, [vehicles, filterBranch, filterOwnership, filterActive, filterAttachment, filterType, filterModel])
+  }, [vehicles, filterBranch, filterOwnership, filterActive, filterAttachment, filterType, filterModel, filterVrm, filterHrCode])
 
   // Load assignment history
   async function loadHistory(vehicleId: number) {
@@ -221,6 +253,78 @@ export default function VehicleStatusDashboard() {
     } finally {
       setHistoryLoading(false)
     }
+  }
+
+  async function lookupByVrm() {
+    const vrm = lookupVrm.trim().toUpperCase()
+    if (!vrm) return
+    setLookupLoading(true)
+    setLookupContractorHistory(null)
+    setLookupContractor(null)
+    setLookupVehicleHistory(null)
+    setLookupVehicle(null)
+
+    // Find the vehicle in the full dataset (ignoring active filter)
+    const match = vehicles.find((v) => v.RegistrationNumber?.toUpperCase() === vrm)
+    if (!match) {
+      setLookupVehicle(null)
+      setLookupVehicleHistory([])
+      setLookupLoading(false)
+      return
+    }
+    setLookupVehicle(match)
+
+    try {
+      const res = await fetch('/api/fleet/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'history', vehicleId: match.VehicleId }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setLookupVehicleHistory(data.history)
+      }
+    } catch {
+      // silent
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  async function lookupByHrCode() {
+    const code = lookupHrCode.trim().toUpperCase()
+    if (!code) return
+    setLookupLoading(true)
+    setLookupVehicleHistory(null)
+    setLookupVehicle(null)
+    setLookupContractorHistory(null)
+    setLookupContractor(null)
+
+    try {
+      const res = await fetch('/api/fleet/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'contractor-history', hrCode: code }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setLookupContractor(data.contractor)
+        setLookupContractorHistory(data.history)
+      }
+    } catch {
+      // silent
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  function clearLookup() {
+    setLookupVrm('')
+    setLookupHrCode('')
+    setLookupVehicleHistory(null)
+    setLookupContractorHistory(null)
+    setLookupContractor(null)
+    setLookupVehicle(null)
   }
 
   async function handleDownload() {
@@ -289,9 +393,11 @@ export default function VehicleStatusDashboard() {
     setFilterAttachment('')
     setFilterType('')
     setFilterModel('')
+    setFilterVrm('')
+    setFilterHrCode('')
   }
 
-  const hasFilters = filterBranch || filterOwnership || filterActive || filterAttachment || filterType || filterModel
+  const hasFilters = filterBranch || filterOwnership || (filterActive && filterActive !== 'active') || filterAttachment || filterType || filterModel || filterVrm || filterHrCode
 
   if (loading) {
     return (
@@ -468,6 +574,26 @@ export default function VehicleStatusDashboard() {
               {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">VRM</label>
+            <input
+              type="text"
+              value={filterVrm}
+              onChange={(e) => setFilterVrm(e.target.value)}
+              placeholder="Search..."
+              className={`${selectClasses} w-28 uppercase`}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">HR Code</label>
+            <input
+              type="text"
+              value={filterHrCode}
+              onChange={(e) => setFilterHrCode(e.target.value)}
+              placeholder="Search..."
+              className={`${selectClasses} w-28 uppercase`}
+            />
+          </div>
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2">
               Clear filters
@@ -574,6 +700,163 @@ export default function VehicleStatusDashboard() {
       {/* ═══════════ PANEL 2: ASSIGNMENT ═══════════ */}
       {activePanel === 'assignment' && (
         <div className="space-y-6">
+          {/* Assignment Lookup */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">Assignment Lookup</h3>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Search by VRM</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={lookupVrm}
+                    onChange={(e) => setLookupVrm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && lookupByVrm()}
+                    placeholder="e.g. AB12 CDE"
+                    className={`${selectClasses} w-36 uppercase`}
+                  />
+                  <button onClick={lookupByVrm} disabled={lookupLoading || !lookupVrm.trim()} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Search
+                  </button>
+                </div>
+              </div>
+              <div className="text-xs text-slate-400 self-center pb-2">or</div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Search by HR Code</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={lookupHrCode}
+                    onChange={(e) => setLookupHrCode(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && lookupByHrCode()}
+                    placeholder="e.g. X003663"
+                    className={`${selectClasses} w-36 uppercase`}
+                  />
+                  <button onClick={lookupByHrCode} disabled={lookupLoading || !lookupHrCode.trim()} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Search
+                  </button>
+                </div>
+              </div>
+              {(lookupVehicleHistory || lookupContractorHistory) && (
+                <button onClick={clearLookup} className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2">
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Lookup results */}
+            {lookupLoading && <p className="text-sm text-slate-400 mt-4">Loading...</p>}
+
+            {/* VRM lookup results */}
+            {lookupVehicleHistory !== null && !lookupLoading && (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                {lookupVehicle ? (
+                  <>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm font-semibold text-slate-900">{lookupVehicle.RegistrationNumber}</span>
+                      <span className="text-xs text-slate-500">{lookupVehicle.ModelName ?? ''}</span>
+                      <span className="text-xs text-slate-500">{lookupVehicle.BranchName ?? ''}</span>
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${toBool(lookupVehicle.IsActive) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {toBool(lookupVehicle.IsActive) ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    {lookupVehicleHistory.length === 0 ? (
+                      <p className="text-sm text-slate-400">No assignment history for this vehicle.</p>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-left text-slate-500">
+                            <th className="pb-2 pr-4 font-medium">HR Code</th>
+                            <th className="pb-2 pr-4 font-medium">Name</th>
+                            <th className="pb-2 pr-4 font-medium">Branch</th>
+                            <th className="pb-2 pr-4 font-medium">From</th>
+                            <th className="pb-2 pr-4 font-medium">To</th>
+                            <th className="pb-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lookupVehicleHistory.map((h) => (
+                            <tr key={h.ContractorVehicleId} className="border-b border-slate-100 last:border-0">
+                              <td className="py-2 pr-4 font-mono text-slate-900">{h.HrCode}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.ContractorName}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.ContractorBranch || '-'}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.FromDate}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.ToDate || '-'}</td>
+                              <td className="py-2">
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${h.IsCurrent ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  {h.IsCurrent ? 'Current' : 'Past'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400">No vehicle found with registration &quot;{lookupVrm.toUpperCase()}&quot;.</p>
+                )}
+              </div>
+            )}
+
+            {/* HR Code lookup results */}
+            {lookupContractorHistory !== null && !lookupLoading && (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                {lookupContractor ? (
+                  <>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm font-semibold text-slate-900 font-mono">{lookupContractor.HrCode}</span>
+                      <span className="text-sm text-slate-700">{lookupContractor.ContractorName}</span>
+                      <span className="text-xs text-slate-500">{lookupContractor.ContractorBranch ?? ''}</span>
+                    </div>
+                    {lookupContractorHistory.length === 0 ? (
+                      <p className="text-sm text-slate-400">No vehicle assignments found for this contractor.</p>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-left text-slate-500">
+                            <th className="pb-2 pr-4 font-medium">Registration</th>
+                            <th className="pb-2 pr-4 font-medium">Model</th>
+                            <th className="pb-2 pr-4 font-medium">Branch</th>
+                            <th className="pb-2 pr-4 font-medium">Ownership</th>
+                            <th className="pb-2 pr-4 font-medium">Vehicle Active</th>
+                            <th className="pb-2 pr-4 font-medium">From</th>
+                            <th className="pb-2 pr-4 font-medium">To</th>
+                            <th className="pb-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lookupContractorHistory.map((h) => (
+                            <tr key={h.ContractorVehicleId} className="border-b border-slate-100 last:border-0">
+                              <td className="py-2 pr-4 text-slate-900 font-medium">{h.RegistrationNumber}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.ModelName || '-'}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.VehicleBranch || '-'}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.OwnershipType || '-'}</td>
+                              <td className="py-2 pr-4">
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${toBool(h.VehicleIsActive) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  {toBool(h.VehicleIsActive) ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-4 text-slate-600">{h.FromDate}</td>
+                              <td className="py-2 pr-4 text-slate-600">{h.ToDate || '-'}</td>
+                              <td className="py-2">
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${h.IsCurrent ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  {h.IsCurrent ? 'Current' : 'Past'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400">No contractor found with HR code &quot;{lookupHrCode.toUpperCase()}&quot;.</p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatCard label="Attached" value={attachedCount} />
             <StatCard label="Unattached" value={unattachedCount} />

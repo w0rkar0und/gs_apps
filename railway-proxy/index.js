@@ -938,10 +938,59 @@ app.post('/report/contractor-sync', async (req, res) => {
 
 // ── Vehicle Status (Fleet dashboard) ──
 app.post('/report/vehicle-status', async (req, res) => {
-  const { mode, vehicleId } = req.body;
+  const { mode, vehicleId, hrCode } = req.body;
 
   try {
     const p = await getPool();
+
+    if (mode === 'contractor-history') {
+      // All vehicles ever assigned to a contractor
+      if (!hrCode) return res.status(400).json({ error: 'hrCode is required for contractor-history mode' });
+
+      const result = await p.request()
+        .input('HrCode', sql.VarChar, hrCode)
+        .query(`
+          SELECT
+              cv.ContractorVehicleId,
+              v.VehicleId,
+              v.RegistrationNumber,
+              CONVERT(VARCHAR(50), vb.BranchName)          AS VehicleBranch,
+              CONVERT(VARCHAR(50), vm.VehicleModelName)     AS ModelName,
+              CONVERT(VARCHAR(50), vot.VehicleOwnershipTypeName) AS OwnershipType,
+              CONVERT(VARCHAR, v.IsActive)                  AS VehicleIsActive,
+              CONVERT(VARCHAR, cv.FromDate, 103)             AS FromDate,
+              CONVERT(VARCHAR, cv.ToDate, 103)               AS ToDate,
+              CASE WHEN cv.ToDate IS NULL
+                   OR CAST(cv.ToDate AS DATE) >= CAST(GETDATE() AS DATE)
+                   THEN 1 ELSE 0 END                         AS IsCurrent
+          FROM ContractorVehicle cv
+          JOIN Vehicle v              ON v.VehicleId = cv.VehicleId
+          LEFT JOIN Branch vb         ON vb.BranchId = v.BranchId
+          LEFT JOIN VehicleModel vm   ON vm.VehicleModelId = v.VehicleModelId
+          LEFT JOIN VehicleOwnershipType vot ON vot.VehicleOwnershipTypeId = v.VehicleOwnershipTypeId
+          WHERE cv.ContractorId = (SELECT ContractorId FROM Contractor WHERE HrCode = @HrCode)
+          ORDER BY cv.FromDate DESC
+        `);
+
+      // Also fetch contractor details
+      const contractorResult = await p.request()
+        .input('HrCode', sql.VarChar, hrCode)
+        .query(`
+          SELECT c.HrCode, up.FirstName + ' ' + up.LastName AS ContractorName,
+                 CONVERT(VARCHAR(50), b.BranchName) AS ContractorBranch
+          FROM Contractor c
+          JOIN [User] u ON u.UserId = c.UserId
+          JOIN UserProfile up ON up.UserId = u.UserId
+          LEFT JOIN UserBranchRole ubr ON ubr.UserId = c.UserId
+          LEFT JOIN Branch b ON b.BranchId = ubr.BranchId
+          WHERE c.HrCode = @HrCode
+        `);
+
+      return res.json({
+        contractor: contractorResult.recordset[0] || null,
+        history: result.recordset,
+      });
+    }
 
     if (mode === 'history') {
       // Assignment history for a specific vehicle
