@@ -20,7 +20,6 @@ interface Vehicle {
   PurchaseDate: string | null
   Value: number | null
   Payload: number | null
-  Route: number | null
   BranchName: string | null
   BranchAlias: string | null
   OwnershipType: string | null

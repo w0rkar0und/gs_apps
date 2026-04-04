@@ -987,7 +987,6 @@ app.post('/report/vehicle-status', async (req, res) => {
           CONVERT(VARCHAR, v.PurchaseDate, 23)          AS PurchaseDate,
           CAST(v.Value AS FLOAT)                       AS Value,
           CAST(v.Payload AS FLOAT)                     AS Payload,
-          v.Route,
 
           CONVERT(VARCHAR(50), vb.BranchName)          AS BranchName,
           CONVERT(VARCHAR(25), vb.BranchAlias)         AS BranchAlias,
