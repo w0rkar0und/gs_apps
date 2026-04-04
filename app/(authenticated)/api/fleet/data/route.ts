@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { mode, vehicleId } = body
+  const { mode, vehicleId, hrCode } = body
 
   try {
     const proxyRes = await fetch(`${process.env.RAILWAY_PROXY_URL}/report/vehicle-status`, {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'X-Report-Secret': process.env.RAILWAY_PROXY_SECRET!,
       },
-      body: JSON.stringify({ mode: mode || 'snapshot', vehicleId }),
+      body: JSON.stringify({ mode: mode || 'snapshot', vehicleId, hrCode }),
     })
 
     if (!proxyRes.ok) {
