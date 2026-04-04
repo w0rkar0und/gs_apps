@@ -109,17 +109,17 @@ function distinct(arr: (string | null | undefined)[]): string[] {
   return [...new Set(arr.filter((x): x is string => !!x))].sort()
 }
 
-const CHART_COLOURS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
-const PIE_COLOURS = ['#3b82f6', '#10b981']
+const CHART_COLOURS = ['#3B6E8F', '#58595B', '#A7A9AC', '#2D5670', '#7BA4BC', '#3B6E8F', '#58595B', '#A7A9AC']
+const PIE_COLOURS = ['#3B6E8F', '#58595B']
 
 // ── Stat Card ──
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="text-xs text-slate-500 font-medium">{label}</div>
-      <div className="text-2xl font-semibold text-slate-900 mt-1">{value}</div>
-      {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
+    <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-gt-blue p-4">
+      <div className="text-xs text-gt-mid font-medium">{label}</div>
+      <div className="text-2xl font-semibold text-gt-dark mt-1">{value}</div>
+      {sub && <div className="text-xs text-gt-mid mt-0.5">{sub}</div>}
     </div>
   )
 }
@@ -131,7 +131,7 @@ function ComplianceBadge({ status }: { status: ReturnType<typeof complianceStatu
     overdue: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
     'due-soon': 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
     valid: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
-    unknown: 'bg-slate-50 text-slate-500 ring-1 ring-inset ring-slate-200',
+    unknown: 'bg-slate-50 text-gt-mid ring-1 ring-inset ring-slate-200',
   }
   const labels = { overdue: 'Overdue', 'due-soon': 'Due soon', valid: 'Valid', unknown: '-' }
   return (
@@ -408,7 +408,7 @@ export default function VehicleStatusDashboard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center text-sm text-slate-500">
+      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-sm text-gt-mid">
         Loading fleet data...
       </div>
     )
@@ -505,7 +505,7 @@ export default function VehicleStatusDashboard() {
       return aMin - bMin
     })
 
-  const selectClasses = "rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white"
+  const selectClasses = "rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-gt-dark focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white"
 
   const panels: { key: Panel; label: string }[] = [
     { key: 'overview', label: 'Overview' },
@@ -524,8 +524,8 @@ export default function VehicleStatusDashboard() {
             onClick={() => setActivePanel(p.key)}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-150 ${
               activePanel === p.key
-                ? 'bg-slate-900 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                ? 'bg-gt-blue text-white'
+                : 'bg-white border border-slate-200 text-gt-dark hover:bg-gt-blue/5'
             }`}
           >
             {p.label}
@@ -534,17 +534,17 @@ export default function VehicleStatusDashboard() {
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+      <div className="bg-white rounded-2xl border border-slate-200 border-t-2 border-t-gt-blue p-4 mb-6">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Branch</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">Branch</label>
             <select value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)} className={selectClasses}>
               <option value="">All</option>
               {branches.map((b) => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Ownership</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">Ownership</label>
             <select value={filterOwnership} onChange={(e) => setFilterOwnership(e.target.value)} className={selectClasses}>
               <option value="">All</option>
               <option value="greythorn">Greythorn</option>
@@ -552,7 +552,7 @@ export default function VehicleStatusDashboard() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">Status</label>
             <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)} className={selectClasses}>
               <option value="">All</option>
               <option value="active">Active</option>
@@ -560,7 +560,7 @@ export default function VehicleStatusDashboard() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Assignment</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">Assignment</label>
             <select value={filterAttachment} onChange={(e) => setFilterAttachment(e.target.value)} className={selectClasses}>
               <option value="">All</option>
               <option value="attached">Attached</option>
@@ -568,21 +568,21 @@ export default function VehicleStatusDashboard() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Type</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">Type</label>
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className={selectClasses}>
               <option value="">All</option>
               {types.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Model</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">Model</label>
             <select value={filterModel} onChange={(e) => setFilterModel(e.target.value)} className={selectClasses}>
               <option value="">All</option>
               {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">VRM</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">VRM</label>
             <input
               type="text"
               value={filterVrm}
@@ -592,7 +592,7 @@ export default function VehicleStatusDashboard() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">HR Code</label>
+            <label className="block text-xs font-medium text-gt-mid mb-1">HR Code</label>
             <input
               type="text"
               value={filterHrCode}
@@ -602,7 +602,7 @@ export default function VehicleStatusDashboard() {
             />
           </div>
           {hasFilters && (
-            <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2">
+            <button onClick={clearFilters} className="text-xs text-gt-mid hover:text-gt-dark px-2 py-2">
               Clear filters
             </button>
           )}
@@ -610,7 +610,7 @@ export default function VehicleStatusDashboard() {
             <button
               onClick={handleDownload}
               disabled={downloading}
-              className="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="inline-flex items-center gap-2 bg-gt-blue text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-gt-blue-dark disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -620,7 +620,7 @@ export default function VehicleStatusDashboard() {
             <button
               onClick={handleEmail}
               disabled={emailing}
-              className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="inline-flex items-center gap-2 bg-slate-100 text-gt-dark rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
@@ -631,7 +631,7 @@ export default function VehicleStatusDashboard() {
             {emailSuccess && <span className="text-sm text-emerald-600">{emailSuccess}</span>}
           </div>
         </div>
-        <div className="mt-2 text-xs text-slate-400">
+        <div className="mt-2 text-xs text-gt-mid">
           {filtered.length} vehicle{filtered.length !== 1 ? 's' : ''}{hasFilters ? ' (filtered)' : ''}
         </div>
       </div>
@@ -648,27 +648,27 @@ export default function VehicleStatusDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Vehicles by branch */}
-            <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Vehicles by Branch</h3>
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+              <h3 className="text-base font-semibold text-gt-dark mb-4">Vehicles by Branch</h3>
               {byBranch.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(byBranch.length * 36, 200)}>
                   <BarChart data={byBranch} layout="vertical" margin={{ left: 0, right: 16, top: 0, bottom: 0 }}>
                     <XAxis type="number" tick={{ fontSize: 12 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={120} />
                     <Tooltip />
-                    <Bar dataKey="greythorn" stackId="a" name="Greythorn" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="da" stackId="a" name="DA Supplied" fill="#10b981" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="greythorn" stackId="a" name="Greythorn" fill="#3B6E8F" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="da" stackId="a" name="DA Supplied" fill="#58595B" radius={[0, 4, 4, 0]} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-sm text-slate-400">No data</p>
+                <p className="text-sm text-gt-mid">No data</p>
               )}
             </div>
 
             {/* Ownership split */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-6">Ownership Split</h3>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <h3 className="text-base font-semibold text-gt-dark mb-6">Ownership Split</h3>
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie
@@ -687,16 +687,16 @@ export default function VehicleStatusDashboard() {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex justify-center gap-6 mt-4 text-sm text-slate-700">
+              <div className="flex justify-center gap-6 mt-4 text-sm text-gt-dark">
                 <span className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-blue-500 shrink-0" />
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: '#3B6E8F' }} />
                   Greythorn <span className="font-semibold">{greythornCount}</span>
-                  <span className="text-slate-400 text-xs">({filtered.length > 0 ? ((greythornCount / filtered.length) * 100).toFixed(0) : 0}%)</span>
+                  <span className="text-gt-mid text-xs">({filtered.length > 0 ? ((greythornCount / filtered.length) * 100).toFixed(0) : 0}%)</span>
                 </span>
                 <span className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: '#58595B' }} />
                   DA Supplied <span className="font-semibold">{daCount}</span>
-                  <span className="text-slate-400 text-xs">({filtered.length > 0 ? ((daCount / filtered.length) * 100).toFixed(0) : 0}%)</span>
+                  <span className="text-gt-mid text-xs">({filtered.length > 0 ? ((daCount / filtered.length) * 100).toFixed(0) : 0}%)</span>
                 </span>
               </div>
             </div>
@@ -708,11 +708,11 @@ export default function VehicleStatusDashboard() {
       {activePanel === 'assignment' && (
         <div className="space-y-6">
           {/* Assignment Lookup */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-900 mb-3">Assignment Lookup</h3>
+          <div className="bg-white rounded-2xl border border-slate-200 p-4">
+            <h3 className="text-base font-semibold text-gt-dark mb-3">Assignment Lookup</h3>
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Search by VRM</label>
+                <label className="block text-xs font-medium text-gt-mid mb-1">Search by VRM</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -727,9 +727,9 @@ export default function VehicleStatusDashboard() {
                   </button>
                 </div>
               </div>
-              <div className="text-xs text-slate-400 self-center pb-2">or</div>
+              <div className="text-xs text-gt-mid self-center pb-2">or</div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Search by HR Code</label>
+                <label className="block text-xs font-medium text-gt-mid mb-1">Search by HR Code</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -745,14 +745,14 @@ export default function VehicleStatusDashboard() {
                 </div>
               </div>
               {(lookupVehicleHistory || lookupContractorHistory) && (
-                <button onClick={clearLookup} className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2">
+                <button onClick={clearLookup} className="text-xs text-gt-mid hover:text-gt-dark px-2 py-2">
                   Clear
                 </button>
               )}
             </div>
 
             {/* Lookup results */}
-            {lookupLoading && <p className="text-sm text-slate-400 mt-4">Loading...</p>}
+            {lookupLoading && <p className="text-sm text-gt-mid mt-4">Loading...</p>}
             {lookupError && (
               <div className="mt-4 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-700">{lookupError}</div>
             )}
@@ -763,19 +763,19 @@ export default function VehicleStatusDashboard() {
                 {lookupVehicle ? (
                   <>
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="text-sm font-semibold text-slate-900">{lookupVehicle.RegistrationNumber}</span>
-                      <span className="text-xs text-slate-500">{lookupVehicle.ModelName ?? ''}</span>
-                      <span className="text-xs text-slate-500">{lookupVehicle.BranchName ?? ''}</span>
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${toBool(lookupVehicle.IsActive) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                      <span className="text-base font-semibold text-gt-dark">{lookupVehicle.RegistrationNumber}</span>
+                      <span className="text-xs text-gt-mid">{lookupVehicle.ModelName ?? ''}</span>
+                      <span className="text-xs text-gt-mid">{lookupVehicle.BranchName ?? ''}</span>
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${toBool(lookupVehicle.IsActive) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-gt-mid'}`}>
                         {toBool(lookupVehicle.IsActive) ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                     {lookupVehicleHistory.length === 0 ? (
-                      <p className="text-sm text-slate-400">No assignment history for this vehicle.</p>
+                      <p className="text-sm text-gt-mid">No assignment history for this vehicle.</p>
                     ) : (
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="border-b border-slate-200 text-left text-slate-500">
+                          <tr className="border-b border-slate-200 text-left text-gt-mid">
                             <th className="pb-2 pr-4 font-medium">HR Code</th>
                             <th className="pb-2 pr-4 font-medium">Name</th>
                             <th className="pb-2 pr-4 font-medium">Branch</th>
@@ -787,13 +787,13 @@ export default function VehicleStatusDashboard() {
                         <tbody>
                           {lookupVehicleHistory.map((h) => (
                             <tr key={h.ContractorVehicleId} className="border-b border-slate-100 last:border-0">
-                              <td className="py-2 pr-4 font-mono text-slate-900">{h.HrCode}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.ContractorName}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.ContractorBranch || '-'}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.FromDate}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.ToDate || '-'}</td>
+                              <td className="py-2 pr-4 font-mono text-gt-dark">{h.HrCode}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.ContractorName}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.ContractorBranch || '-'}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.FromDate}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.ToDate || '-'}</td>
                               <td className="py-2">
-                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${h.IsCurrent ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${h.IsCurrent ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-gt-mid'}`}>
                                   {h.IsCurrent ? 'Current' : 'Past'}
                                 </span>
                               </td>
@@ -804,7 +804,7 @@ export default function VehicleStatusDashboard() {
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-slate-400">No vehicle found with registration &quot;{lookupVrm.toUpperCase()}&quot;.</p>
+                  <p className="text-sm text-gt-mid">No vehicle found with registration &quot;{lookupVrm.toUpperCase()}&quot;.</p>
                 )}
               </div>
             )}
@@ -816,17 +816,17 @@ export default function VehicleStatusDashboard() {
                   <>
                     {lookupContractor && (
                       <div className="flex items-center gap-3 mb-3">
-                        <span className="text-sm font-semibold text-slate-900 font-mono">{lookupContractor.HrCode}</span>
-                        <span className="text-sm text-slate-700">{lookupContractor.ContractorName}</span>
-                        <span className="text-xs text-slate-500">{lookupContractor.ContractorBranch ?? ''}</span>
+                        <span className="text-base font-semibold text-gt-dark font-mono">{lookupContractor.HrCode}</span>
+                        <span className="text-sm text-gt-dark">{lookupContractor.ContractorName}</span>
+                        <span className="text-xs text-gt-mid">{lookupContractor.ContractorBranch ?? ''}</span>
                       </div>
                     )}
                     {lookupContractorHistory.length === 0 ? (
-                      <p className="text-sm text-slate-400">No vehicle assignments found for this contractor.</p>
+                      <p className="text-sm text-gt-mid">No vehicle assignments found for this contractor.</p>
                     ) : (
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="border-b border-slate-200 text-left text-slate-500">
+                          <tr className="border-b border-slate-200 text-left text-gt-mid">
                             <th className="pb-2 pr-4 font-medium">Registration</th>
                             <th className="pb-2 pr-4 font-medium">Model</th>
                             <th className="pb-2 pr-4 font-medium">Branch</th>
@@ -840,19 +840,19 @@ export default function VehicleStatusDashboard() {
                         <tbody>
                           {lookupContractorHistory.map((h) => (
                             <tr key={h.ContractorVehicleId} className="border-b border-slate-100 last:border-0">
-                              <td className="py-2 pr-4 text-slate-900 font-medium">{h.RegistrationNumber}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.ModelName || '-'}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.VehicleBranch || '-'}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.OwnershipType || '-'}</td>
+                              <td className="py-2 pr-4 text-gt-dark font-medium">{h.RegistrationNumber}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.ModelName || '-'}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.VehicleBranch || '-'}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.OwnershipType || '-'}</td>
                               <td className="py-2 pr-4">
-                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${toBool(h.VehicleIsActive) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${toBool(h.VehicleIsActive) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-gt-mid'}`}>
                                   {toBool(h.VehicleIsActive) ? 'Active' : 'Inactive'}
                                 </span>
                               </td>
-                              <td className="py-2 pr-4 text-slate-600">{h.FromDate}</td>
-                              <td className="py-2 pr-4 text-slate-600">{h.ToDate || '-'}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.FromDate}</td>
+                              <td className="py-2 pr-4 text-gt-dark">{h.ToDate || '-'}</td>
                               <td className="py-2">
-                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${h.IsCurrent ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${h.IsCurrent ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-gt-mid'}`}>
                                   {h.IsCurrent ? 'Current' : 'Past'}
                                 </span>
                               </td>
@@ -863,7 +863,7 @@ export default function VehicleStatusDashboard() {
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-slate-400">No contractor found with HR code &quot;{lookupHrCode.toUpperCase()}&quot;.</p>
+                  <p className="text-sm text-gt-mid">No contractor found with HR code &quot;{lookupHrCode.toUpperCase()}&quot;.</p>
                 )}
               </div>
             )}
@@ -876,11 +876,11 @@ export default function VehicleStatusDashboard() {
             <StatCard label="Total Assignments" value={filtered.reduce((sum, v) => sum + (v.AssignmentCount || 0), 0)} sub="all-time across fleet" />
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <tr className="border-b border-slate-200 text-left text-gt-mid">
                     <th className="px-4 py-3 font-medium w-5" />
                     <th className="px-4 py-3 font-medium">Registration</th>
                     <th className="px-4 py-3 font-medium">Branch</th>
@@ -904,33 +904,33 @@ export default function VehicleStatusDashboard() {
                             onClick={() => loadHistory(v.VehicleId)}
                           >
                             <div className="px-4 py-3">
-                              <svg className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <svg className={`w-4 h-4 text-gt-mid transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                               </svg>
                             </div>
-                            <div className="px-4 py-3 text-slate-900 font-medium">{v.RegistrationNumber}</div>
-                            <div className="px-4 py-3 text-slate-600">{v.BranchName || '-'}</div>
+                            <div className="px-4 py-3 text-gt-dark font-medium">{v.RegistrationNumber}</div>
+                            <div className="px-4 py-3 text-gt-dark">{v.BranchName || '-'}</div>
                             <div className="px-4 py-3">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 isDA(v)
-                                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                                  : 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200'
+                                  ? 'bg-gray-100 text-gt-dark ring-1 ring-inset ring-gray-200'
+                                  : 'bg-gt-blue/10 text-gt-blue ring-1 ring-inset ring-gt-blue/20'
                               }`}>
                                 {ownershipLabel(v)}
                               </span>
                             </div>
-                            <div className="px-4 py-3 text-slate-600">{v.ModelName || '-'}</div>
-                            <div className="px-4 py-3 text-slate-600">{v.TypeName || '-'}</div>
+                            <div className="px-4 py-3 text-gt-dark">{v.ModelName || '-'}</div>
+                            <div className="px-4 py-3 text-gt-dark">{v.TypeName || '-'}</div>
                             <div className="px-4 py-3">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 v.ContractorHrCode
                                   ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                                  : 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200'
+                                  : 'bg-slate-50 text-gt-dark ring-1 ring-inset ring-slate-200'
                               }`}>
                                 {attachmentLabel(v)}
                               </span>
                             </div>
-                            <div className="px-4 py-3 text-slate-600">
+                            <div className="px-4 py-3 text-gt-dark">
                               {v.ContractorHrCode ? (
                                 <div>
                                   <span className="font-mono text-xs">{v.ContractorHrCode}</span>
@@ -938,22 +938,22 @@ export default function VehicleStatusDashboard() {
                                 </div>
                               ) : '-'}
                             </div>
-                            <div className="px-4 py-3 text-slate-600">{v.ContractorBranch || '-'}</div>
-                            <div className="px-4 py-3 text-slate-600">{v.AttachedSince || '-'}</div>
+                            <div className="px-4 py-3 text-gt-dark">{v.ContractorBranch || '-'}</div>
+                            <div className="px-4 py-3 text-gt-dark">{v.AttachedSince || '-'}</div>
                           </div>
 
                           {/* Assignment history */}
                           {isExpanded && (
                             <div className="border-b border-slate-200 bg-slate-50/50 px-8 py-4">
-                              <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Assignment History</h4>
+                              <h4 className="text-xs font-medium text-gt-mid uppercase tracking-wider mb-2">Assignment History</h4>
                               {historyLoading ? (
-                                <p className="text-sm text-slate-400">Loading...</p>
+                                <p className="text-sm text-gt-mid">Loading...</p>
                               ) : historyData.length === 0 ? (
-                                <p className="text-sm text-slate-400">No assignment history.</p>
+                                <p className="text-sm text-gt-mid">No assignment history.</p>
                               ) : (
                                 <table className="w-full text-xs">
                                   <thead>
-                                    <tr className="border-b border-slate-200 text-left text-slate-500">
+                                    <tr className="border-b border-slate-200 text-left text-gt-mid">
                                       <th className="pb-2 pr-4 font-medium">HR Code</th>
                                       <th className="pb-2 pr-4 font-medium">Name</th>
                                       <th className="pb-2 pr-4 font-medium">Branch</th>
@@ -965,16 +965,16 @@ export default function VehicleStatusDashboard() {
                                   <tbody>
                                     {historyData.map((h) => (
                                       <tr key={h.ContractorVehicleId} className="border-b border-slate-100 last:border-0">
-                                        <td className="py-2 pr-4 font-mono text-slate-900">{h.HrCode}</td>
-                                        <td className="py-2 pr-4 text-slate-600">{h.ContractorName}</td>
-                                        <td className="py-2 pr-4 text-slate-600">{h.ContractorBranch || '-'}</td>
-                                        <td className="py-2 pr-4 text-slate-600">{h.FromDate}</td>
-                                        <td className="py-2 pr-4 text-slate-600">{h.ToDate || '-'}</td>
+                                        <td className="py-2 pr-4 font-mono text-gt-dark">{h.HrCode}</td>
+                                        <td className="py-2 pr-4 text-gt-dark">{h.ContractorName}</td>
+                                        <td className="py-2 pr-4 text-gt-dark">{h.ContractorBranch || '-'}</td>
+                                        <td className="py-2 pr-4 text-gt-dark">{h.FromDate}</td>
+                                        <td className="py-2 pr-4 text-gt-dark">{h.ToDate || '-'}</td>
                                         <td className="py-2">
                                           <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                             h.IsCurrent
                                               ? 'bg-emerald-50 text-emerald-700'
-                                              : 'bg-slate-100 text-slate-500'
+                                              : 'bg-slate-100 text-gt-mid'
                                           }`}>
                                             {h.IsCurrent ? 'Current' : 'Past'}
                                           </span>
@@ -1001,8 +1001,8 @@ export default function VehicleStatusDashboard() {
       {activePanel === 'composition' && (
         <div className="space-y-6">
           {/* By model */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">Vehicles by Model (top 15)</h3>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-base font-semibold text-gt-dark mb-4">Vehicles by Model (top 15)</h3>
             {byModel.length > 0 ? (
               <ResponsiveContainer width="100%" height={Math.max(byModel.length * 32, 200)}>
                 <BarChart data={byModel} layout="vertical" margin={{ left: 0, right: 16, top: 0, bottom: 0 }}>
@@ -1017,24 +1017,24 @@ export default function VehicleStatusDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-slate-400">No data</p>
+              <p className="text-sm text-gt-mid">No data</p>
             )}
           </div>
 
           {/* By type */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">Vehicles by Type</h3>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-base font-semibold text-gt-dark mb-4">Vehicles by Type</h3>
             {byType.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                 {byType.map((t) => (
-                  <div key={t.name} className="bg-slate-50 rounded-xl p-4 text-center">
-                    <div className="text-2xl font-semibold text-slate-900">{t.count}</div>
-                    <div className="text-xs text-slate-500 mt-1">{t.name}</div>
+                  <div key={t.name} className="bg-gt-bg rounded-xl p-4 text-center">
+                    <div className="text-2xl font-semibold text-gt-dark">{t.count}</div>
+                    <div className="text-xs text-gt-mid mt-1">{t.name}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No data</p>
+              <p className="text-sm text-gt-mid">No data</p>
             )}
           </div>
         </div>
@@ -1044,7 +1044,7 @@ export default function VehicleStatusDashboard() {
       {activePanel === 'compliance' && (
         <div className="space-y-6">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-slate-500">Show:</label>
+            <label className="text-xs font-medium text-gt-mid">Show:</label>
             {(['all', 'overdue', '30', '60', '90'] as const).map((opt) => {
               const labels = { all: 'All issues', overdue: 'Overdue only', '30': 'Due within 30 days', '60': '60 days', '90': '90 days' }
               return (
@@ -1053,8 +1053,8 @@ export default function VehicleStatusDashboard() {
                   onClick={() => setComplianceFilter(opt)}
                   className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors duration-150 ${
                     complianceFilter === opt
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'bg-gt-blue text-white'
+                      : 'bg-white border border-slate-200 text-gt-dark hover:bg-gt-blue/5'
                   }`}
                 >
                   {labels[opt]}
@@ -1063,16 +1063,16 @@ export default function VehicleStatusDashboard() {
             })}
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             {complianceVehicles.length === 0 ? (
-              <div className="px-6 py-8 text-center text-sm text-slate-500">
+              <div className="px-6 py-8 text-center text-sm text-gt-mid">
                 No compliance issues found for the selected filter.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-500">
+                    <tr className="border-b border-slate-200 text-left text-gt-mid">
                       <th className="px-4 py-3 font-medium">Registration</th>
                       <th className="px-4 py-3 font-medium">Branch</th>
                       <th className="px-4 py-3 font-medium">Model</th>
@@ -1087,14 +1087,14 @@ export default function VehicleStatusDashboard() {
                   <tbody>
                     {complianceVehicles.map((v) => (
                       <tr key={v.VehicleId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                        <td className="px-4 py-3 text-slate-900 font-medium">{v.RegistrationNumber}</td>
-                        <td className="px-4 py-3 text-slate-600">{v.BranchName || '-'}</td>
-                        <td className="px-4 py-3 text-slate-600">{v.ModelName || '-'}</td>
-                        <td className="px-4 py-3 text-slate-600">{formatDateUK(v.NextMotDue)}</td>
+                        <td className="px-4 py-3 text-gt-dark font-medium">{v.RegistrationNumber}</td>
+                        <td className="px-4 py-3 text-gt-dark">{v.BranchName || '-'}</td>
+                        <td className="px-4 py-3 text-gt-dark">{v.ModelName || '-'}</td>
+                        <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.NextMotDue)}</td>
                         <td className="px-4 py-3"><ComplianceBadge status={v.motStatus} /></td>
-                        <td className="px-4 py-3 text-slate-600">{formatDateUK(v.RoadTaxDue)}</td>
+                        <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.RoadTaxDue)}</td>
                         <td className="px-4 py-3"><ComplianceBadge status={v.taxStatus} /></td>
-                        <td className="px-4 py-3 text-slate-600">{formatDateUK(v.InsuranceRenewalDate)}</td>
+                        <td className="px-4 py-3 text-gt-dark">{formatDateUK(v.InsuranceRenewalDate)}</td>
                         <td className="px-4 py-3"><ComplianceBadge status={v.insuranceStatus} /></td>
                       </tr>
                     ))}
