@@ -130,7 +130,7 @@ export default function VehicleStatusDashboard() {
   // Filters
   const [filterBranch, setFilterBranch] = useState('')
   const [filterOwnership, setFilterOwnership] = useState('')
-  const [filterActive, setFilterActive] = useState('')
+  const [filterActive, setFilterActive] = useState('active')
   const [filterAttachment, setFilterAttachment] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterModel, setFilterModel] = useState('')
@@ -313,9 +313,11 @@ export default function VehicleStatusDashboard() {
   const attachedCount = filtered.filter((v) => v.ContractorHrCode).length
   const unattachedCount = filtered.length - attachedCount
 
-  // Branch breakdown
+  // Branch breakdown — DA supplied only counted if attached to a contractor
   const byBranch = Object.entries(
     filtered.reduce((acc, v) => {
+      // Skip DA supplied vehicles with no current contractor
+      if (toBool(v.IsOwnedByContractor) && !v.ContractorHrCode) return acc
       const b = v.BranchName || 'Unassigned'
       if (!acc[b]) acc[b] = { greythorn: 0, da: 0 }
       if (toBool(v.IsOwnedByContractor)) acc[b].da++
@@ -529,8 +531,8 @@ export default function VehicleStatusDashboard() {
 
             {/* Ownership split */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Ownership Split</h3>
-              <ResponsiveContainer width="100%" height={200}>
+              <h3 className="text-sm font-semibold text-slate-900 mb-6">Ownership Split</h3>
+              <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie
                     data={ownershipPie}
@@ -538,11 +540,8 @@ export default function VehicleStatusDashboard() {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
-                    innerRadius={45}
-                    label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                    labelLine={false}
-                    style={{ fontSize: 11 }}
+                    outerRadius={75}
+                    innerRadius={42}
                   >
                     {ownershipPie.map((_, i) => (
                       <Cell key={i} fill={PIE_COLOURS[i]} />
@@ -551,12 +550,16 @@ export default function VehicleStatusDashboard() {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex justify-center gap-6 mt-2 text-xs text-slate-600">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Greythorn ({greythornCount})
+              <div className="flex justify-center gap-6 mt-4 text-sm text-slate-700">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-blue-500 shrink-0" />
+                  Greythorn <span className="font-semibold">{greythornCount}</span>
+                  <span className="text-slate-400 text-xs">({filtered.length > 0 ? ((greythornCount / filtered.length) * 100).toFixed(0) : 0}%)</span>
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> DA Supplied ({daCount})
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
+                  DA Supplied <span className="font-semibold">{daCount}</span>
+                  <span className="text-slate-400 text-xs">({filtered.length > 0 ? ((daCount / filtered.length) * 100).toFixed(0) : 0}%)</span>
                 </span>
               </div>
             </div>
