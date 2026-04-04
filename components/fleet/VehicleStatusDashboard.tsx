@@ -58,8 +58,12 @@ function toBool(val: string | null | undefined): boolean {
   return val === '1' || val === 'true' || val === 'True'
 }
 
+function isDA(v: Vehicle): boolean {
+  return v.OwnershipType === 'DA Supplied Vehicle'
+}
+
 function ownershipLabel(v: Vehicle): string {
-  return toBool(v.IsOwnedByContractor) ? 'DA Supplied' : 'Greythorn'
+  return isDA(v) ? 'DA Supplied' : 'Greythorn'
 }
 
 function attachmentLabel(v: Vehicle): string {
@@ -182,8 +186,8 @@ export default function VehicleStatusDashboard() {
   const filtered = useMemo(() => {
     return vehicles.filter((v) => {
       if (filterBranch && v.BranchName !== filterBranch) return false
-      if (filterOwnership === 'greythorn' && toBool(v.IsOwnedByContractor)) return false
-      if (filterOwnership === 'da' && !toBool(v.IsOwnedByContractor)) return false
+      if (filterOwnership === 'greythorn' && isDA(v)) return false
+      if (filterOwnership === 'da' && !isDA(v)) return false
       if (filterActive === 'active' && !toBool(v.IsActive)) return false
       if (filterActive === 'inactive' && toBool(v.IsActive)) return false
       if (filterAttachment === 'attached' && !v.ContractorHrCode) return false
@@ -317,10 +321,10 @@ export default function VehicleStatusDashboard() {
   const byBranch = Object.entries(
     filtered.reduce((acc, v) => {
       // Skip DA supplied vehicles with no current contractor
-      if (toBool(v.IsOwnedByContractor) && !v.ContractorHrCode) return acc
+      if (isDA(v) && !v.ContractorHrCode) return acc
       const b = v.BranchName || 'Unassigned'
       if (!acc[b]) acc[b] = { greythorn: 0, da: 0 }
-      if (toBool(v.IsOwnedByContractor)) acc[b].da++
+      if (isDA(v)) acc[b].da++
       else acc[b].greythorn++
       return acc
     }, {} as Record<string, { greythorn: number; da: number }>)
@@ -329,7 +333,7 @@ export default function VehicleStatusDashboard() {
     .sort((a, b) => b.total - a.total)
 
   // Ownership split
-  const greythornCount = filtered.filter((v) => !toBool(v.IsOwnedByContractor)).length
+  const greythornCount = filtered.filter((v) => !isDA(v)).length
   const daCount = filtered.length - greythornCount
   const ownershipPie = [
     { name: 'Greythorn', value: greythornCount },
@@ -573,7 +577,7 @@ export default function VehicleStatusDashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatCard label="Attached" value={attachedCount} />
             <StatCard label="Unattached" value={unattachedCount} />
-            <StatCard label="Greythorn Unattached" value={filtered.filter((v) => !v.ContractorHrCode && !toBool(v.IsOwnedByContractor)).length} />
+            <StatCard label="Greythorn Unattached" value={filtered.filter((v) => !v.ContractorHrCode && !isDA(v)).length} />
             <StatCard label="Total Assignments" value={filtered.reduce((sum, v) => sum + (v.AssignmentCount || 0), 0)} sub="all-time across fleet" />
           </div>
 
@@ -613,7 +617,7 @@ export default function VehicleStatusDashboard() {
                             <div className="px-4 py-3 text-slate-600">{v.BranchName || '-'}</div>
                             <div className="px-4 py-3">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                                toBool(v.IsOwnedByContractor)
+                                isDA(v)
                                   ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
                                   : 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200'
                               }`}>

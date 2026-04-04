@@ -50,14 +50,14 @@ export async function generateVehicleStatusExcel(vehicles: any[], filters?: Filt
 
   // Data rows
   vehicles.forEach((v, i) => {
-    const isOwned = v.IsOwnedByContractor === '1' || v.IsOwnedByContractor === 'true' || v.IsOwnedByContractor === 'True'
+    const isDA = v.OwnershipType === 'DA Supplied Vehicle'
     const isActive = v.IsActive === '1' || v.IsActive === 'true' || v.IsActive === 'True'
     const style = i % 2 === 0 ? dataStyleEven : dataStyleOdd
 
     const row = ws.addRow([
       v.RegistrationNumber ?? '',
       v.BranchName ?? '',
-      isOwned ? 'DA Supplied' : 'Greythorn',
+      isDA ? 'DA Supplied' : 'Greythorn',
       v.ModelName ?? '',
       v.TypeName ?? '',
       v.CategoryName ?? '',
