@@ -21,10 +21,6 @@ interface Vehicle {
   Value: number | null
   Payload: number | null
   Route: number | null
-  SpareKey: string | null
-  DartFrontAccount: string | null
-  Logbook: string | null
-  CongestionAccount: string | null
   BranchName: string | null
   BranchAlias: string | null
   OwnershipType: string | null

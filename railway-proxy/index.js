@@ -988,10 +988,6 @@ app.post('/report/vehicle-status', async (req, res) => {
           CAST(v.Value AS FLOAT)                       AS Value,
           CAST(v.Payload AS FLOAT)                     AS Payload,
           v.Route,
-          CONVERT(VARCHAR, v.SpareKey)                  AS SpareKey,
-          CONVERT(VARCHAR, v.DartFrontAccount)          AS DartFrontAccount,
-          CONVERT(VARCHAR, v.Logbook)                   AS Logbook,
-          CONVERT(VARCHAR, v.CongestionAccount)         AS CongestionAccount,
 
           CONVERT(VARCHAR(50), vb.BranchName)          AS BranchName,
           CONVERT(VARCHAR(25), vb.BranchAlias)         AS BranchAlias,
