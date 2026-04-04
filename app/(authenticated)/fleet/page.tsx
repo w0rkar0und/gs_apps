@@ -21,7 +21,7 @@ export default async function FleetPage() {
     return (
       <div className="py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h1 className="text-xl font-semibold text-slate-900 mb-6">Fleet</h1>
+          <h1 className="text-2xl font-bold text-gt-dark mb-6">Fleet</h1>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
             <p className="text-slate-500 text-sm">
               You do not have access to the Fleet dashboard. Please contact your administrator.
@@ -35,7 +35,7 @@ export default async function FleetPage() {
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <h1 className="text-xl font-semibold text-slate-900 mb-6">Fleet</h1>
+        <h1 className="text-2xl font-bold text-gt-dark mb-6">Fleet</h1>
         <VehicleStatusDashboard />
       </div>
     </div>
