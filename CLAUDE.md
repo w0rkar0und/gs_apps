@@ -20,6 +20,7 @@ Platform admins (`profiles.is_admin = true`) can access all apps and manage user
 | Referrals | `referrals` | Live | Contractor referral registration and verification |
 | Reports | `reports` | Live | Self-service Greythorn SQL Server reports with visualisations |
 | Scorecards | `scorecards` | Live | Courier scorecard predictions — run pipeline, view results |
+| Fleet | `fleet` | Live | Vehicle status dashboard — fleet overview, assignments, composition, compliance |
 
 ---
 
@@ -72,6 +73,8 @@ gs_apps/
 │   │   │   └── page.tsx                 # Report runner (server component, checks permissions)
 │   │   ├── scorecards/                  # ── Scorecards app ──
 │   │   │   └── page.tsx                 # Dashboard — trigger runs, view history + results
+│   │   ├── fleet/                       # ── Fleet app ──
+│   │   │   └── page.tsx                 # Vehicle status dashboard (admin/fleet access)
 │   │   └── api/
 │   │       ├── platform/admin/
 │   │       │   ├── create-user/route.ts # Platform user creation (service role)
@@ -88,11 +91,15 @@ gs_apps/
 │   │       │   ├── branch-performance/route.ts  # Proxy → Railway multi-week trend report
 │   │       │   ├── download/route.ts            # ExcelJS generation → .xlsx download
 │   │       │   └── email/route.ts               # ExcelJS generation → Resend email
-│   │       └── scorecards/
-│   │           ├── run/route.ts                 # Trigger pipeline (admin, POST)
-│   │           ├── status/route.ts              # Live pipeline status (admin, GET)
-│   │           ├── history/route.ts             # Run history from Supabase (admin, GET)
-│   │           └── results/route.ts             # Prediction results for a run (admin, GET)
+│   │       ├── scorecards/
+│   │       │   ├── run/route.ts                 # Trigger pipeline (admin, POST)
+│   │       │   ├── status/route.ts              # Live pipeline status (admin, GET)
+│   │       │   ├── history/route.ts             # Run history from Supabase (admin, GET)
+│   │       │   └── results/route.ts             # Prediction results for a run (admin, GET)
+│   │       └── fleet/
+│   │           ├── data/route.ts                # Proxy → Railway vehicle-status (snapshot/history/contractor-history)
+│   │           ├── download/route.ts            # ExcelJS generation → .xlsx download
+│   │           └── email/route.ts               # ExcelJS generation → Resend email
 │   └── api/
 │       └── cron/                        # Vercel cron endpoints (platform-level)
 │           ├── sync-reminder/route.ts
@@ -121,8 +128,10 @@ gs_apps/
 │   │   ├── WorkingDaysByClientReport.tsx # Fleet-wide: filters, chart, grouped table
 │   │   ├── SettlementReport.tsx         # DA Relations settlement — 5 collapsible sections
 │   │   └── BranchPerformanceReport.tsx  # Multi-week trend: line chart, pivoted table
-│   └── scorecards/                      # ── Scorecards app components ──
-│       └── ScorecardDashboard.tsx       # Run trigger, history table, expandable results
+│   ├── scorecards/                      # ── Scorecards app components ──
+│   │   └── ScorecardDashboard.tsx       # Run trigger, history table, expandable results
+│   └── fleet/                           # ── Fleet app components ──
+│       └── VehicleStatusDashboard.tsx   # 4-panel dashboard: overview, assignment, composition, compliance
 ├── docs/
 │   ├── GREYTHORN_REPORTS_CONTEXT.md     # Full report specs (deposit + working days)
 │   ├── WORKING_DAY_COUNT_BY_CLIENT.md   # Fleet-wide report spec + SQL
@@ -137,6 +146,7 @@ gs_apps/
 │   ├── excel-working-days-by-client.ts  # Fleet-wide report Excel generator
 │   ├── excel-settlement.ts             # Settlement report Excel generator
 │   ├── excel-branch-performance.ts    # Branch performance Excel generator
+│   ├── excel-vehicle-status.ts        # Vehicle status Excel generator
 │   ├── supabase.ts                      # Supabase client (browser)
 │   ├── supabase-server.ts               # Supabase client (server/RSC)
 │   └── types.ts                         # Shared TypeScript types
@@ -210,7 +220,7 @@ gs_apps/
 3. **Update middleware matcher** — add the base path to `middleware.ts`:
    ```typescript
    export const config = {
-     matcher: ['/apps/:path*', '/referrals/:path*', '/reports/:path*', '/scorecards/:path*', '/new-app/:path*'],
+     matcher: ['/apps/:path*', '/referrals/:path*', '/reports/:path*', '/scorecards/:path*', '/fleet/:path*', '/new-app/:path*'],
    }
    ```
 
@@ -506,6 +516,7 @@ CREATE TRIGGER on_auth_user_created
   referrals/admin/checks/      → Run Checks
   reports/                     → Report runner (all report types)
   scorecards/                  → Scorecard dashboard — run pipeline, view history + results (admin only)
+  fleet/                       → Vehicle status dashboard — 4 panels + assignment lookup (admin/fleet access)
   api/platform/admin/create-user     → Platform user creation (service role)
   api/platform/admin/update-user     → Platform user edit/deactivate/delete (service role)
   api/referrals/admin/run-checks      → Run Check from UI (admin, max 4 HR codes)
@@ -522,6 +533,9 @@ CREATE TRIGGER on_auth_user_created
   api/scorecards/status              → Live pipeline status (admin, GET)
   api/scorecards/history             → Run history from Supabase (admin, GET)
   api/scorecards/results             → Prediction results for a run (admin, GET)
+  api/fleet/data                     → Vehicle status data proxy (snapshot/history/contractor-history)
+  api/fleet/download                 → Vehicle status Excel download
+  api/fleet/email                    → Vehicle status Excel email
 /api/cron/sync-reminder        → Daily sync reminder email
 /api/cron/check-sync           → Missed sync detection + alert
 /api/cron/referral-digest      → Daily new referrals digest
@@ -611,6 +625,7 @@ A Node.js/Express service deployed on Railway with static outbound IPs, used to 
 | POST | `/report/referral-check` | `{ hrCodes, startDates }` | Working day check for 1-4 referrals — approved debriefs, rota projections, first rota date |
 | POST | `/report/branch-performance` | `{ weekCount? }` | Multi-week weighted days trend by client/branch/contract type (default 4 weeks, max 12) |
 | POST | `/report/contractor-sync` | `{}` | All contractors — HrCode, name, active status, last worked date |
+| POST | `/report/vehicle-status` | `{ mode }` | Vehicle status — snapshot (fleet overview), history (vehicle assignments), contractor-history (contractor assignments) |
 
 ### Request flow
 ```
@@ -705,6 +720,95 @@ Admin-only page with:
 ### Access Control
 - Admin-only at every level: middleware, server component `is_admin` check, all API routes check `is_admin`
 - No `user_apps` row needed — admins bypass the access check
+
+---
+
+## Fleet App — Detailed Documentation
+
+### Overview
+Vehicle status dashboard for the Greythorn fleet. Queries the Greythorn DB via Railway proxy, renders client-side with Recharts visualisations. No Supabase tables — all data comes live from Greythorn.
+
+### Data Model
+
+Central table: **Vehicle** with JOINs to:
+- Branch (via BranchId) — display uses `BranchAlias` with `BranchName` fallback
+- VehicleOwnershipType — ownership classification
+- VehicleModel, VehicleType, VehicleCategory, VehicleColor — fleet composition
+- VehicleSupplier, VehicleInsuranceProvider, VehicleTrackerProvider, VehicleBreakdownProvider — operational details
+- ContractorVehicle (OUTER APPLY) → Contractor → User → UserProfile → UserBranchRole → Branch — current assignment
+
+**Ownership grouping:** Only `DA Supplied Vehicle` is DA Supplied. All others (Greythorn Vehicle, DPD Supplied Vehicle, Greythorn - RTB) are Greythorn. Determined by `VehicleOwnershipType.VehicleOwnershipTypeName`, not `IsOwnedByContractor`.
+
+**Active status:** `Vehicle.IsActive` determines if a vehicle is in the fleet. `Vehicle.IsSorn` is regulatory only (SORN but active = owned, off-road).
+
+**Assignment:** A vehicle is currently attached when `ContractorVehicle` has `FromDate <= today AND (ToDate IS NULL OR ToDate >= today)`. One vehicle can have multiple historical assignments but never two concurrent.
+
+### Railway Proxy Endpoint
+
+`POST /report/vehicle-status` with three modes:
+
+| Mode | Body | Returns |
+|---|---|---|
+| `snapshot` | `{}` | One row per vehicle with current assignment (if any), all lookup fields |
+| `history` | `{ vehicleId }` | All ContractorVehicle rows for a vehicle with contractor details |
+| `contractor-history` | `{ hrCode }` | All ContractorVehicle rows for a contractor with vehicle details |
+
+### Vercel API Routes
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/fleet/data` | Proxy → Railway vehicle-status (all 3 modes) |
+| POST | `/api/fleet/download` | ExcelJS → .xlsx download |
+| POST | `/api/fleet/email` | ExcelJS → Resend email to user's own email |
+
+### Dashboard (`/fleet`)
+
+**Filter bar** (shared across all panels):
+- Branch, Ownership (Greythorn/DA Supplied), Status (defaults to Active), Assignment (Attached/Unattached), Type, Model — dropdowns
+- VRM, HR Code — text inputs with partial match
+- Download Excel / Email to Me buttons
+
+**Panel 1: Fleet Overview**
+- Stat cards: Total, Active (with inactive count), SORN, Attached (with unattached count)
+- Horizontal bar chart: vehicles by branch, stacked by ownership (Greythorn blue / DA green). DA supplied vehicles excluded if no current contractor
+- Donut chart: Greythorn vs DA split with counts and percentages in legend
+
+**Panel 2: Assignment Status**
+- Assignment Lookup: search by VRM or HR Code — shows full current + historical assignments regardless of active status
+- Stat cards: Attached, Unattached, Greythorn Unattached, Total Assignments (all-time)
+- Sortable table: Registration, Branch, Ownership, Model, Type, Status (Attached/Unattached), Contractor (HR Code + Name), Contractor Branch, Attached Since
+- Click any row to expand inline assignment history (lazy-loaded via `history` mode)
+
+**Panel 3: Fleet Composition**
+- Horizontal bar chart: top 15 models
+- Grid cards: vehicles by type with counts
+
+**Panel 4: Compliance**
+- Filter buttons: All issues, Overdue only, Due within 30/60/90 days
+- Table: Registration, Branch, Model, MOT Due (date + status badge), Road Tax Due (date + status badge), Insurance Renewal (date + status badge)
+- Badges: red (Overdue), amber (Due soon — within 30 days), green (Valid)
+- Sorted by urgency (overdue first)
+
+### Access Control
+- Middleware checks `user_apps` for `fleet` slug (admins bypass)
+- Server component checks `is_admin` OR `user_apps` access
+- API routes check same — admin or fleet-app access via `user_apps`
+- Currently admin-only. Fleet team users to be added to `user_apps` with `app_slug = 'fleet'`
+
+### Excel Export
+- House-style .xlsx with 14 columns: Registration, Branch, Ownership, Model, Type, Category, Active, Contractor HR Code, Contractor Name, Contractor Branch, Attached Since, MOT Due, Road Tax Due, Insurance Renewal
+- Filter summary included in title row
+- Same download/email pattern as Reports app
+
+### Key Design Decisions
+1. **Single query, client-side filtering** — snapshot returns all vehicles (~hundreds), filtering/grouping happens in the browser for instant interaction
+2. **Assignment history on demand** — loaded per-vehicle or per-contractor to avoid pulling thousands of rows upfront
+3. **Ownership by name, not flag** — `IsOwnedByContractor` is unreliable; ownership determined by `VehicleOwnershipTypeName = 'DA Supplied Vehicle'`
+4. **BranchAlias for display** — all branch display uses `ISNULL(BranchAlias, BranchName)` for shorter, familiar labels
+5. **LEFT JOINs on User/UserProfile** — some contractors lack User/UserProfile rows; INNER JOINs would silently drop them from results
+6. **No Supabase persistence** — all data is live from Greythorn; no run history or caching layer
+7. **Default to active** — Status filter defaults to "Active" on page load
+8. **DA excluded from branch chart if unattached** — DA supplied vehicles with no current contractor are not counted in the branch chart since they're not effectively in the fleet
 
 ---
 
@@ -945,6 +1049,22 @@ Courier scorecard prediction pipeline ported from DigitalOcean droplet to Railwa
 - `CURRENT_YEAR = 2026` in `config.py` — update in January 2027
 - Azure AD client secret for Graph API expires Feb 2028
 
+### Fleet App — Live
+
+Vehicle status dashboard at `/fleet` with live Greythorn DB queries:
+- Railway proxy endpoint `POST /report/vehicle-status` with 3 modes: snapshot (fleet overview), history (per-vehicle), contractor-history (per-contractor)
+- Frontend: 4-panel dashboard (Overview, Assignment, Composition, Compliance) with shared filter bar
+- Filter bar: Branch, Ownership, Status (defaults Active), Assignment, Type, Model dropdowns + VRM and HR Code text search
+- Assignment Lookup: search by VRM or HR Code for full current + historical assignments regardless of active status
+- Recharts visualisations: stacked bar chart by branch, donut for ownership split, model bar chart
+- Compliance panel: MOT, Road Tax, Insurance renewal dates with red/amber/green urgency badges
+- Excel download and email via ExcelJS + Resend (same pattern as Reports app)
+- Access: admin or `user_apps` with `app_slug = 'fleet'`. Currently admin-only; fleet team users to be added
+- Ownership: determined by `VehicleOwnershipTypeName` — only "DA Supplied Vehicle" is DA, all others are Greythorn
+- Branch display: uses `BranchAlias` with `BranchName` fallback throughout
+- No Supabase tables — all data live from Greythorn
+- Components: `components/fleet/VehicleStatusDashboard.tsx`, `lib/excel-vehicle-status.ts`
+
 ### Build Configuration
 
 - `next.config.ts` includes `serverExternalPackages: ['exceljs']` (Turbopack mangles external module names)
@@ -996,6 +1116,11 @@ All migrations applied to Supabase:
 22. **Scorecard predictions capture** — predictions data is extracted from Excel sheets in-memory before the archive step deletes the files. Stored as JSONB in `scorecard_results`
 23. **Scorecard container temp files** — runtime copies, extracted data, model outputs are within the container filesystem (not external systems), so this doesn't violate the no-temp-files rule
 24. **Scorecard Thursday/Friday pattern** — if Thursday processes and deletes PDFs from SharePoint inbox, Friday naturally finds nothing and returns `no_files`. No explicit skip logic needed
+25. **Fleet ownership by name** — `VehicleOwnershipType.IsOwnedByContractor` flag is unreliable; ownership determined by `VehicleOwnershipTypeName = 'DA Supplied Vehicle'` explicitly. "Greythorn Vehicle", "DPD Supplied Vehicle", "Greythorn - RTB" are all Greythorn
+26. **Fleet BranchAlias** — all fleet branch display uses `ISNULL(BranchAlias, BranchName)` for shorter labels, consistent with Reports app
+27. **Fleet LEFT JOINs** — User/UserProfile joins in fleet queries must be LEFT JOIN, not INNER — some contractors lack these rows and INNER JOINs silently drop them from results
+28. **Fleet client-side filtering** — snapshot returns entire fleet (~hundreds of vehicles), all filtering/grouping happens in-browser for instant interaction. Assignment history loaded on demand per vehicle/contractor
+29. **Fleet Greythorn DB columns** — some columns in the DBeaver ERD export do not exist in the actual database (e.g. `DartFrontAccount`, `SpareKey`, `Logbook`, `CongestionAccount`, `Route`). Always verify column existence before adding to queries
 
 ---
 
