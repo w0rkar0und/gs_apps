@@ -976,11 +976,12 @@ app.post('/report/vehicle-status', async (req, res) => {
       const contractorResult = await p.request()
         .input('HrCode', sql.VarChar, hrCode)
         .query(`
-          SELECT c.HrCode, up.FirstName + ' ' + up.LastName AS ContractorName,
+          SELECT c.HrCode,
+                 ISNULL(up.FirstName + ' ' + up.LastName, '') AS ContractorName,
                  CONVERT(VARCHAR(50), b.BranchName) AS ContractorBranch
           FROM Contractor c
-          JOIN [User] u ON u.UserId = c.UserId
-          JOIN UserProfile up ON up.UserId = u.UserId
+          LEFT JOIN [User] u ON u.UserId = c.UserId
+          LEFT JOIN UserProfile up ON up.UserId = u.UserId
           LEFT JOIN UserBranchRole ubr ON ubr.UserId = c.UserId
           LEFT JOIN Branch b ON b.BranchId = ubr.BranchId
           WHERE c.HrCode = @HrCode
@@ -1002,7 +1003,7 @@ app.post('/report/vehicle-status', async (req, res) => {
           SELECT
               cv.ContractorVehicleId,
               c.HrCode,
-              up.FirstName + ' ' + up.LastName         AS ContractorName,
+              ISNULL(up.FirstName + ' ' + up.LastName, '') AS ContractorName,
               CONVERT(VARCHAR(50), b.BranchName)        AS ContractorBranch,
               CONVERT(VARCHAR, cv.FromDate, 103)         AS FromDate,
               CONVERT(VARCHAR, cv.ToDate, 103)           AS ToDate,
@@ -1011,8 +1012,8 @@ app.post('/report/vehicle-status', async (req, res) => {
                    THEN 1 ELSE 0 END                     AS IsCurrent
           FROM ContractorVehicle cv
           JOIN Contractor c        ON c.ContractorId = cv.ContractorId
-          JOIN [User] u            ON u.UserId = c.UserId
-          JOIN UserProfile up      ON up.UserId = u.UserId
+          LEFT JOIN [User] u       ON u.UserId = c.UserId
+          LEFT JOIN UserProfile up ON up.UserId = u.UserId
           LEFT JOIN UserBranchRole ubr ON ubr.UserId = c.UserId
           LEFT JOIN Branch b       ON b.BranchId = ubr.BranchId
           WHERE cv.VehicleId = @VehicleId

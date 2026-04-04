@@ -802,13 +802,15 @@ export default function VehicleStatusDashboard() {
             {/* HR Code lookup results */}
             {lookupContractorHistory !== null && !lookupLoading && (
               <div className="mt-4 border-t border-slate-100 pt-4">
-                {lookupContractor ? (
+                {lookupContractor || lookupContractorHistory.length > 0 ? (
                   <>
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-sm font-semibold text-slate-900 font-mono">{lookupContractor.HrCode}</span>
-                      <span className="text-sm text-slate-700">{lookupContractor.ContractorName}</span>
-                      <span className="text-xs text-slate-500">{lookupContractor.ContractorBranch ?? ''}</span>
-                    </div>
+                    {lookupContractor && (
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="text-sm font-semibold text-slate-900 font-mono">{lookupContractor.HrCode}</span>
+                        <span className="text-sm text-slate-700">{lookupContractor.ContractorName}</span>
+                        <span className="text-xs text-slate-500">{lookupContractor.ContractorBranch ?? ''}</span>
+                      </div>
+                    )}
                     {lookupContractorHistory.length === 0 ? (
                       <p className="text-sm text-slate-400">No vehicle assignments found for this contractor.</p>
                     ) : (
